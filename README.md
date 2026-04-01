@@ -117,6 +117,7 @@ Troubleshooting
 - OAuth “developer/test user” error: add your channel’s Google account on the OAuth consent screen, External + Testing, scope youtube.upload
 - Localhost blocked: we use fixed port 8080; keep terminal running during auth and use the latest link on the same machine
 - YouTube upload limits: new channels often have daily caps; re-run tomorrow; the poller will continue automatically
+- **n8n / Docker / Script Errors:** See [TROUBLESHOOTING_N8N_DOCKER.md](./TROUBLESHOOTING_N8N_DOCKER.md) for detailed help with n8n workflow bugs, sandbox limits, and running the pipeline via `docker compose`.
 
 ---
 

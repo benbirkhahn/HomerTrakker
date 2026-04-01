@@ -1,0 +1,10 @@
+.DS_Store
+__pycache__/
+venv/
+.homer.env
+youtube_token.json
+MLB_HomeRun_Posts/
+Shorts_Ready/
+Thumbnails_Ready/
+.homer_cache/
+logs/
