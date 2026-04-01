@@ -135,20 +135,12 @@
     },
     {
       "parameters": {
-        "url": "={{$json.d}}",
-        "options": {
-          "response": {
-            "response": {
-              "responseFormat": "file"
-            }
-          },
-          "timeout": 20000
-        }
+        "command": "=/opt/venv/bin/python3 -c 'import urllib.request, sys; urllib.request.urlretrieve(sys.argv[1], sys.argv[2])' \"{{$json.d}}\" \"{{$json.video1Path}}\""
       },
       "id": "1f7a7804-8971-4b67-808c-6b8a9b8f7e9e",
       "name": "13 Download Diamond",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 3,
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
       "position": [
         -4832,
         1184
@@ -158,13 +150,10 @@
     },
     {
       "parameters": {
-        "operation": "write",
-        "fileName": "={{$json.video1Path}}",
-        "dataPropertyName": "=data",
-        "options": {}
+        "jsCode": "return $input.all();"
       },
-      "type": "n8n-nodes-base.readWriteFile",
-      "typeVersion": 1,
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         -4608,
         1184
@@ -187,20 +176,12 @@
     },
     {
       "parameters": {
-        "url": "={{$json.a}}",
-        "options": {
-          "response": {
-            "response": {
-              "responseFormat": "file"
-            }
-          },
-          "timeout": 20000
-        }
+        "command": "=/opt/venv/bin/python3 -c 'import urllib.request, sys; urllib.request.urlretrieve(sys.argv[1], sys.argv[2])' \"{{$json.a}}\" \"{{$json.video2Path}}\""
       },
       "id": "6c8dab31-2d76-4c81-9f64-bb7d6e479810",
       "name": "15 Download Animated",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 3,
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
       "position": [
         -4832,
         1376
@@ -210,13 +191,10 @@
     },
     {
       "parameters": {
-        "operation": "write",
-        "fileName": "={{$json.video2Path}}",
-        "dataPropertyName": "=data",
-        "options": {}
+        "jsCode": "return $input.all();"
       },
-      "type": "n8n-nodes-base.readWriteFile",
-      "typeVersion": 1,
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         -4608,
         1376

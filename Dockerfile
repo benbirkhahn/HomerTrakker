@@ -18,7 +18,7 @@ ENV PATH="/opt/venv/bin:$PATH"
 RUN pip install google-api-python-client google-auth google-auth-httplib2 google-auth-oauthlib requests
 
 # Install n8n globally (the slim image has full npm support)
-RUN npm install -g n8n
+RUN npm install -g n8n --no-fund --no-audit && npm cache clean --force
 
 # In the docker-compose file it sets 'user: root', so we remain root
 # and start the n8n process automatically

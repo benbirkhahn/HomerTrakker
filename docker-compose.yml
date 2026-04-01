@@ -1,5 +1,6 @@
 services:
   n8n:
+    image: homertrakker-n8n-fixed
     build: .
     container_name: n8n_hometrakker
     restart: unless-stopped
