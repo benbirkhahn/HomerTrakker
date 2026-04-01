@@ -284,12 +284,9 @@
     },
     {
       "parameters": {
-        "operation": "write",
-        "fileName": "={{$json.postPath}}",
-        "dataPropertyName": "=data",
-        "options": {}
+        "command": "=cat << 'N8N_EOF' > \"{{$json.postPath}}\"\n{{$json.postText}}\nN8N_EOF"
       },
-      "type": "n8n-nodes-base.readWriteFile",
+      "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
       "position": [
         -4608,
