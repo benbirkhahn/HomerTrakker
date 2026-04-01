@@ -1,0 +1,70 @@
+{
+  "name": "HomerTrakker Error Notifier (iMessage)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "ErrTrig1",
+      "name": "On Error",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "const wf = $json.workflow || {};\nconst exec = $json.execution || {};\nconst err = $json.error || {};\nconst lastNode = (err.node && (err.node.name || err.node.id)) || '';\nconst lines = [];\nlines.push(`HomerTrakker ERROR`);\nlines.push(`Workflow: ${wf.name || ''}`);\nlines.push(`Execution ID: ${exec.id || ''}`);\nlines.push(`Last Node: ${lastNode}`);\nlines.push(`Message: ${err.message || ''}`);\nlines.push(`Time: ${new Date().toISOString()}`);\nconst msg = lines.join('\n');\nreturn [{ json: { text: msg } }];"
+      },
+      "id": "FnMsg1",
+      "name": "Build Message",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 2,
+      "position": [
+        520,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "command": "/bin/zsh -lc 'printf \"%s\\n\" \"on run argv\" \"  set target to item 1 of argv\" \"  set textMsg to item 2 of argv\" \"  tell application \\\"Messages\\\"\" \"    set targetService to first service whose service type is iMessage\" \"    set targetBuddy to buddy target of targetService\" \"    send textMsg to targetBuddy\" \"  end tell\" \"end run\" | osascript - \"+19144142424\" \"{{$json.text}}\"'"
+      },
+      "id": "ExecMsg1",
+      "name": "Send iMessage",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 2,
+      "position": [
+        800,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "On Error": {
+      "main": [
+        [
+          {
+            "node": "Build Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Message": {
+      "main": [
+        [
+          {
+            "node": "Send iMessage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "pinData": {},
+  "staticData": {}
+}

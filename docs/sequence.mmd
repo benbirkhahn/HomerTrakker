@@ -1,0 +1,18 @@
+sequenceDiagram
+    autonumber
+    participant Poller as Minute Poller
+    participant MLB as MLB Stats API
+    participant FS as Local Files
+    participant YT as YouTube API
+
+    Poller->>MLB: schedule (date)
+    MLB-->>Poller: game list + states
+    Poller->>MLB: feed/live for active games
+    MLB-->>Poller: plays (allPlays)
+    Poller->>FS: trigger pipeline for new HR
+    FS->>FS: statcast_enricher writes stats/*.json
+    FS->>FS: downloader saves videos/*.mp4 (incl. animated)
+    FS->>FS: compiler writes Shorts_Ready/Homer_X_..._SHORT.mp4 (after both angles present)
+    FS->>YT: uploader posts video + metadata + thumbnail
+    YT-->>FS: videoId / URL
+    FS->>FS: delete uploaded mp4 to free space

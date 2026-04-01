@@ -1,0 +1,217 @@
+{
+  "name": "HomerTrakker Minute Poller V3",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "expression": "*/1"
+            }
+          ]
+        }
+      },
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [100, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get today and yesterday's dates\nconst now = new Date();\nconst today = now.toISOString().split('T')[0];\nconst yesterday = new Date(now - 86400000).toISOString().split('T')[0];\n\nreturn {\n  dates: [yesterday, today],\n  apiBase: 'https://statsapi.mlb.com/api/v1'\n};"
+      },
+      "name": "Setup Dates",
+      "type": "n8n-nodes-base.code",
+      "position": [300, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{ $node[\"Setup Dates\"].json[\"apiBase\"] }}/schedule",
+        "queryParameters": {
+          "sportId": "1",
+          "hydrate": "team,linescore",
+          "date": "={{ $node[\"Setup Dates\"].json[\"dates\"][0] }}"
+        }
+      },
+      "name": "Get Yesterday Games",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [500, 200]
+    },
+    {
+      "parameters": {
+        "url": "={{ $node[\"Setup Dates\"].json[\"apiBase\"] }}/schedule",
+        "queryParameters": {
+          "sportId": "1",
+          "hydrate": "team,linescore",
+          "date": "={{ $node[\"Setup Dates\"].json[\"dates\"][1] }}"
+        }
+      },
+      "name": "Get Today Games",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [500, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Combine and filter active games\nconst games = [\n  ...($node[\"Get Yesterday Games\"].json.dates?.[0]?.games || []),\n  ...($node[\"Get Today Games\"].json.dates?.[0]?.games || [])\n];\n\n// Calculate live window (10 min pre to 6 hours post)\nconst now = new Date();\nconst active = games.filter(g => {\n  const start = new Date(g.gameDate);\n  const preWindow = new Date(start - 10*60*1000);\n  const postWindow = new Date(start.getTime() + 6*60*60*1000);\n  return now >= preWindow && now <= postWindow;\n});\n\nreturn { active };"
+      },
+      "name": "Filter Active Games",
+      "type": "n8n-nodes-base.code",
+      "position": [700, 300]
+    },
+    {
+      "parameters": {
+        "mode": "splitInBatches",
+        "jsCode": "// For each active game, get live feed\nconst games = $input.item.json.active;\nreturn games.map(g => ({\n  json: {\n    gamePk: g.gamePk,\n    url: `https://statsapi.mlb.com/api/v1.1/game/${g.gamePk}/feed/live`\n  }\n}));"
+      },
+      "name": "Split Games",
+      "type": "n8n-nodes-base.code",
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json[\"url\"] }}"
+      },
+      "name": "Get Game Feed",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1100, 300]
+    },
+    {
+      "parameters": {
+        "mode": "splitInBatches",
+        "jsCode": "// Extract home runs from game feed\nconst plays = $input.item.json.liveData?.plays?.allPlays || [];\nconst homers = plays.filter(p => p.result?.eventType === 'home_run');\n\nreturn homers.map(p => ({\n  json: {\n    gamePk: $input.item.json.gamePk,\n    atBatIndex: p.about?.atBatIndex,\n    batter: p.matchup?.batter?.fullName,\n    batterId: p.matchup?.batter?.id,\n    inning: `${p.about?.halfInning} ${p.about?.inning}`,\n    description: p.result?.description,\n    key: `${$input.item.json.gamePk}:${p.about?.atBatIndex}`\n  }\n}));"
+      },
+      "name": "Extract Homers",
+      "type": "n8n-nodes-base.code",
+      "position": [1300, 300]
+    },
+    {
+      "parameters": {
+        "filePath": "/Users/benbirkhahn/.homer/state.json",
+        "options": {
+          "encoding": "utf8"
+        }
+      },
+      "name": "Load State",
+      "type": "n8n-nodes-base.readBinaryFile",
+      "position": [1100, 500]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Check if homer already processed\nconst state = JSON.parse($node[\"Load State\"].binary.data.toString());\nconst seen = state.seen || {};\nconst videoRetries = state.video_retries || {};\n\nconst homer = $input.item.json;\nif (seen[homer.key]) {\n  return [];\n}\n\nconst retryCount = videoRetries[homer.key] || 0;\nreturn [{\n  json: {\n    ...homer,\n    retryCount,\n    contentUrl: `https://statsapi.mlb.com/api/v1/game/${homer.gamePk}/content`,\n    mlbSearchUrl: `https://www.mlb.com/video/search?q=${encodeURIComponent(homer.batter + ' home run')}`\n  }\n}];"
+      },
+      "name": "Check State",
+      "type": "n8n-nodes-base.code",
+      "position": [1500, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json[\"contentUrl\"] }}"
+      },
+      "name": "Get Content API",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1700, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract videos from content\nconst content = $input.item.json;\nconst homer = $input.item;\nconst items = content.highlights?.highlights?.items || [];\n\n// Find homer videos\nconst hrItems = items.filter(it => {\n  const title = (it.headline || it.title || '').toLowerCase();\n  const isHr = title.includes('home run');\n  const isBatter = homer.json.batterId ?\n    it.keywordsAll?.some(k => k.type === 'player' && k.playerId === homer.json.batterId) :\n    title.toLowerCase().includes(homer.json.batter.toLowerCase());\n  return isHr && isBatter;\n});\n\n// Extract video URLs\nlet urls = [];\nfor (const it of hrItems) {\n  for (const pb of (it.playbacks || [])) {\n    if (pb.url?.endsWith('.mp4')) {\n      urls.push(pb.url);\n    }\n  }\n}\n\n// Sort into types\nconst diamond = urls.filter(u => u.includes('mlb-cuts-diamond.mlb.com'));\nconst darkroom = urls.filter(u => u.includes('darkroom-clips.mlb.com'));\nconst produced = urls.filter(u => u.includes('bdata-producedclips.mlb.com'));\n\n// Pick best URLs\nlet broadcast = null;\nfor (const u of diamond) {\n  if (u.includes('4000K')) {\n    broadcast = u;\n    break;\n  }\n}\nif (!broadcast && diamond.length) broadcast = diamond[0];\nif (!broadcast && produced.length) broadcast = produced[0];\n\nconst animated = darkroom[0] || null;\n\nreturn [{\n  json: {\n    ...homer.json,\n    broadcast,\n    animated,\n    hasVideos: !!(broadcast || animated)\n  }\n}];"
+      },
+      "name": "Extract Videos",
+      "type": "n8n-nodes-base.code",
+      "position": [1900, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json[\"hasVideos\"] }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "name": "Has Videos?",
+      "type": "n8n-nodes-base.if",
+      "position": [2100, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Create post file with safe defaults and conditional lines\nconst homer = items[0].json;\nconst date = new Date().toISOString().split('T')[0];\nconst ts = new Date().toISOString().replace(/[:\\.-]/g, '').replace('T', '_').slice(0, 15);\nconst postDir = `/Users/benbirkhahn/HomerTrakker/MLB_HomeRun_Posts/${date}`;\nconst postPath = `${postDir}/tonights_homer_${homer.gamePk}_${ts}.txt`;\n\nconst batter = homer.batter || 'Unknown Player';\nconst pitcher = homer.pitcher || '';\nconst inning = (homer.inning || '').trim();\nconst desc = homer.description || '';\n\nconst lines = [];\nlines.push(\"TONIGHT'S HOME RUN - READY FOR @homertrakker\");\nlines.push(\"=======================================================\");\nlines.push(\"\");\nlines.push(\"CAPTION:\");\nlines.push(\"🏠⚾ HOME RUN ALERT! ⚾🏠\");\nlines.push(`🔥 ${batter}`);\nif (pitcher) lines.push(`⚾ vs ${pitcher}`);\nif (inning) lines.push(`📊 ${inning}`);\nif (desc) lines.push(desc);\nlines.push(\"\");\nlines.push(\"HASHTAGS:\");\nlines.push(\"#MLB #HomeRun #Baseball #MLBShorts #Statcast\");\nlines.push(\"\");\nlines.push(\"VIDEOS:\");\nlines.push(\"1. clip\");\nlines.push(`   ${homer.broadcast || ''}`);\nif (homer.animated) {\n  lines.push(\"2. clip\");\n  lines.push(`   ${homer.animated}`);\n}\nlines.push(\"\");\nlines.push(\"HOME RUN DATA:\");\nlines.push(`GamePk: ${homer.gamePk}`);\nlines.push(`Batter: ${batter}`);\nif (inning) lines.push(`Inning: ${inning}`);\nconst text = lines.join('\\n') + '\\n';\n\n// Ensure directory exists\nif (!await $filesystem.exists(postDir)) {\n  await $filesystem.mkdir(postDir, { recursive: true });\n}\n\n// Write post file\nawait $filesystem.writeFile(postPath, text);\n\n// Update state\nconst state = JSON.parse(await $filesystem.readFile('/Users/benbirkhahn/.homer/state.json', 'utf8'));\nstate.seen = state.seen || {};\nstate.seen[homer.key] = true;\nif (state.video_retries?.[homer.key]) delete state.video_retries[homer.key];\nawait $filesystem.writeFile('/Users/benbirkhahn/.homer/state.json', JSON.stringify(state, null, 2));\n\nreturn {json: {success: true}};"
+      },
+      "name": "Create Post",
+      "type": "n8n-nodes-base.function",
+      "position": [2300, 250]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Update retry count\nconst homer = items[0].json;\nconst state = JSON.parse(await $filesystem.readFile('/Users/benbirkhahn/.homer/state.json', 'utf8'));\nstate.video_retries = state.video_retries || {};\nstate.video_retries[homer.key] = (state.video_retries[homer.key] || 0) + 1;\nawait $filesystem.writeFile('/Users/benbirkhahn/.homer/state.json', JSON.stringify(state, null, 2));\n\nreturn {json: {retrying: true}};"
+      },
+      "name": "Update Retry",
+      "type": "n8n-nodes-base.function",
+      "position": [2300, 350]
+    },
+    {
+      "parameters": {
+        "command": "cd /Users/benbirkhahn/HomerTrakker && /Users/benbirkhahn/twitter_bot_env/bin/python3 statcast_enricher.py \"={{ $node[\"Setup Dates\"].json[\"dates\"][1] }}\" && /Users/benbirkhahn/twitter_bot_env/bin/python3 download_homer_videos.py \"={{ $node[\"Setup Dates\"].json[\"dates\"][1] }}\" && /Users/benbirkhahn/twitter_bot_env/bin/python3 shorts_video_compiler.py \"={{ $node[\"Setup Dates\"].json[\"dates\"][1] }}\""
+      },
+      "name": "Run Processors",
+      "type": "n8n-nodes-base.executeCommand",
+      "position": [2500, 300]
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [["Setup Dates"]]
+    },
+    "Setup Dates": {
+      "main": [["Get Yesterday Games", "Get Today Games"]]
+    },
+    "Get Yesterday Games": {
+      "main": [["Filter Active Games"]]
+    },
+    "Get Today Games": {
+      "main": [["Filter Active Games"]]
+    },
+    "Filter Active Games": {
+      "main": [["Split Games"]]
+    },
+    "Split Games": {
+      "main": [["Get Game Feed"]]
+    },
+    "Get Game Feed": {
+      "main": [["Extract Homers"]]
+    },
+    "Extract Homers": {
+      "main": [["Check State"]]
+    },
+    "Load State": {
+      "main": [["Check State"]]
+    },
+    "Check State": {
+      "main": [["Get Content API"]]
+    },
+    "Get Content API": {
+      "main": [["Extract Videos"]]
+    },
+    "Extract Videos": {
+      "main": [["Has Videos?"]]
+    },
+    "Has Videos?": {
+      "main": [["Create Post"]],
+      "false": [["Update Retry"]]
+    },
+    "Create Post": {
+      "main": [["Run Processors"]]
+    },
+    "Update Retry": {
+      "main": [["Run Processors"]]
+    }
+  },
+  "settings": {},
+  "staticData": null,
+  "tags": ["baseball", "mlb", "video"],
+  "triggerCount": 0,
+  "updatedAt": "2025-10-12T18:36:38.000Z",
+  "versionId": 3
+}

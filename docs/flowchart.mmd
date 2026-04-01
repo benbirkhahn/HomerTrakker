@@ -1,0 +1,16 @@
+flowchart TD
+    subgraph Scheduler
+      C[cron: every minute] --> P[homer_minute_poller.py]
+    end
+
+    P -->|Refresh schedule cache| S[MLB schedule cache]
+    P -->|If live window| Q[Run Pipeline]
+
+    subgraph Pipeline
+      E[statcast_enricher.py] --> D[download_homer_videos.py\nbroadcast + animated]
+      V[shorts_video_compiler.py\nvertical <=59s, requires broadcast+animated]
+      V --> U[youtube_homer_bot.py\ntitle/desc/hashtags, thumbnail]
+      U --> X[Cleanup local video]
+    end
+
+    Q --> E

@@ -1,0 +1,76 @@
+{
+  "name": "HomerTrakker Error Notifier (Webhook)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "ErrTrig1",
+      "name": "On Error",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "const wf = $json.workflow || {};\nconst exec = $json.execution || {};\nconst err = $json.error || {};\nconst lastNode = (err.node && (err.node.name || err.node.id)) || '';\nconst lines = [];\nlines.push(`HomerTrakker ERROR`);\nlines.push(`Workflow: ${wf.name || ''}`);\nlines.push(`Execution ID: ${exec.id || ''}`);\nlines.push(`Last Node: ${lastNode}`);\nlines.push(`Message: ${err.message || ''}`);\nlines.push(`Time: ${new Date().toISOString()}`);\nconst msg = lines.join('\n');\nreturn [{ json: { text: msg, content: msg } }];"
+      },
+      "id": "FnMsg1",
+      "name": "Build Message",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 2,
+      "position": [
+        520,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://hooks.slack.com/services/REPLACE_WITH_WEBHOOK",
+        "responseFormat": "json",
+        "jsonParameters": true,
+        "options": {
+          "timeout": 20
+        },
+        "bodyParametersJson": "={{$json}}"
+      },
+      "id": "HTTP1",
+      "name": "Send Webhook",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        800,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "On Error": {
+      "main": [
+        [
+          {
+            "node": "Build Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Message": {
+      "main": [
+        [
+          {
+            "node": "Send Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "pinData": {},
+  "staticData": {}
+}

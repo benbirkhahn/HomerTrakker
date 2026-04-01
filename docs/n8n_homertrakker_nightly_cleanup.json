@@ -1,0 +1,58 @@
+{
+  "name": "HomerTrakker Nightly Cleanup",
+  "nodes": [
+    {
+      "parameters": {
+        "triggerTimes": {
+          "item": [
+            {
+              "mode": "custom",
+              "expression": "30 3 * * *"
+            }
+          ]
+        }
+      },
+      "id": "Cron2",
+      "name": "Cron (03:30)",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 2,
+      "position": [
+        280,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "command": "/bin/zsh -lc 'find \"/Users/benbirkhahn/HomerTrakker/Shorts_Ready\" -type f -name \"*.mp4\" -mtime +7 -delete; /Users/benbirkhahn/twitter_bot_env/bin/python3 \"/Users/benbirkhahn/HomerTrakker/cleanup_media.py\" \"$(date -v-1d +%F)\" || true'",
+        "options": {
+          "cwd": "/Users/benbirkhahn/HomerTrakker"
+        }
+      },
+      "id": "Exec2",
+      "name": "Nightly Cleanup",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 2,
+      "position": [
+        640,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Cron (03:30)": {
+      "main": [
+        [
+          {
+            "node": "Nightly Cleanup",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "pinData": {},
+  "staticData": {}
+}

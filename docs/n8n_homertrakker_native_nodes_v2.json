@@ -1,0 +1,245 @@
+{
+  "name": "HomerTrakker Native HR Detector + Downloader (v2)",
+  "nodes": [
+    {
+      "parameters": {
+        "triggerTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        }
+      },
+      "id": "Cron1",
+      "name": "01 Cron",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 2,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "const now = new Date();\nconst fmt = d => d.toISOString().slice(0,10);\nreturn [{ today: fmt(now), yday: fmt(new Date(now.getTime()-24*3600*1000)) }];"
+      },
+      "id": "FnDates",
+      "name": "02 Compute Dates",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 2,
+      "position": [420, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{ 'https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=' + $json.today + '&hydrate=team,linescore' }}",
+        "responseFormat": "json"
+      },
+      "id": "SchedToday",
+      "name": "03 Schedule Today",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [660, 220]
+    },
+    {
+      "parameters": {
+        "url": "={{ 'https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=' + $json.yday + '&hydrate=team,linescore' }}",
+        "responseFormat": "json"
+      },
+      "id": "SchedYday",
+      "name": "03b Schedule Yesterday",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [660, 380]
+    },
+    {
+      "parameters": {
+        "functionCode": "const collect = items => items.flatMap(it => (it.json.dates||[]).flatMap(d => d.games||[]));\nconst t = $items('03 Schedule Today', 0);\nconst y = $items('03b Schedule Yesterday', 0);\nconst games = [...collect(t), ...collect(y)];\nconst n = Date.now();\nconst pre = 10*60*1000;\nconst post = 6*3600*1000;\nconst active = games.filter(g => { try { const s = new Date(g.gameDate).getTime(); return (s-pre) <= n && n <= (s+post); } catch(e) { return false; } });\nreturn active.map(g => ({ json: { gamePk: g.gamePk } }));"
+      },
+      "id": "FnFilter",
+      "name": "04 Filter Active Games",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{ 'https://statsapi.mlb.com/api/v1.1/game/' + $json.gamePk + '/feed/live' }}",
+        "responseFormat": "json"
+      },
+      "id": "Feed",
+      "name": "05 Live Feed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1140, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "const HomerCache = require('/Users/benbirkhahn/HomerTrakker/scripts/homer_cache.js');\nconst cache = new HomerCache('/Users/benbirkhahn/HomerTrakker');\n\nconst plays = $json.liveData?.plays?.allPlays || [];\nconst gamePk = $item(0).$node['04 Filter Active Games'].json.gamePk;\nconst today = $item(0).$node['02 Compute Dates'].json.today;\nconst out = [];\n\nfor (const p of plays) {\n  if (p.result?.eventType !== 'home_run') continue;\n  \n  const atBatIndex = p.about?.atBatIndex;\n  if (cache.hasHomeRun(today, gamePk, atBatIndex)) continue;\n  \n  cache.markHomeRun(today, gamePk, atBatIndex);\n  out.push({ json: { gamePk, play: p } });\n}\n\nreturn out;"
+      },
+      "id": "FnHR",
+      "name": "06 Extract New HR Plays",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 2,
+      "position": [1380, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{ 'https://statsapi.mlb.com/api/v1/game/' + $json.gamePk + '/content' }}",
+        "responseFormat": "json"
+      },
+      "id": "Content",
+      "name": "07 Game Content",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1620, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "const content = $json;\nconst play = $item(0).$node['06 Extract New HR Plays'].json.play;\nconst gamePk = $item(0).$node['06 Extract New HR Plays'].json.gamePk;\nconst batterId = play?.matchup?.batter?.id;\nconst items = content.highlights?.highlights?.items || [];\nconst isHRItem = it => ((it.headline||it.title||'').toLowerCase().includes('home run'));\nconst byBatter = it => { if (!batterId) return true; return (it.keywordsAll||[]).some(k => k.type==='player' && String(k.playerId)===String(batterId)); };\nconst links = [];\nfor (const it of items) {\n  if (!(isHRItem(it) && byBatter(it))) continue;\n  for (const pb of (it.playbacks||[])) { const url = pb.url||''; if (url.endsWith('.mp4')) links.push(url); }\n}\nconst diamond = links.filter(u=>u.includes('mlb-cuts-diamond.mlb.com'));\nconst darkroom = links.filter(u=>u.includes('darkroom-clips.mlb.com'));\nconst prefer4000K = arr => arr.find(u=>u.includes('4000K')) || arr[0] || null;\nconst d = prefer4000K(diamond);\nconst a = darkroom[0] || null;\nif (!(d && a)) return [];\nreturn [{ json: { gamePk, play, d, a } }];"
+      },
+      "id": "FnSelect",
+      "name": "08 Select 4000K + Animated",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 2,
+      "position": [1860, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "const HomerCache = require('/Users/benbirkhahn/HomerTrakker/scripts/homer_cache.js');\nconst cache = new HomerCache('/Users/benbirkhahn/HomerTrakker');\n\nconst play = $json.play;\nconst gamePk = $json.gamePk;\nconst d = $json.d;\nconst a = $json.a;\nconst batter = (play.matchup && play.matchup.batter && play.matchup.batter.fullName) || 'Unknown Player';\nconst pitcher = (play.matchup && play.matchup.pitcher && play.matchup.pitcher.fullName) || '';\nconst inning = ((play.about && play.about.halfInning) ? play.about.halfInning : '') + ' ' + ((play.about && play.about.inning) ? play.about.inning : '');\nconst desc = (play.result && play.result.description) || '';\nconst today = $item(0).$node['02 Compute Dates'].json.today;\nfunction pad(n){ return n<10 ? ('0'+n) : (''+n); }\nconst now = new Date();\nconst ts = now.getFullYear().toString() + pad(now.getMonth()+1) + pad(now.getDate()) + '_' + pad(now.getHours()) + pad(now.getMinutes()) + pad(now.getSeconds());\n\n// Get sequence number from cache\nconst num = cache.getNextSeq(today);\n\nconst lines = [];\nlines.push('TONIGHT\\'S HOME RUN - READY FOR @homertrakker');\nlines.push('=======================================================');\nlines.push('');\nlines.push('CAPTION:');\nlines.push('🏠⚾ HOME RUN ALERT! ⚾🏠');\nlines.push('🔥 ' + batter);\nif (pitcher) lines.push('⚾ vs ' + pitcher);\nif (inning.trim()) lines.push('📊 ' + inning.trim());\nif (desc) lines.push(desc);\nlines.push('');\nlines.push('HASHTAGS:');\nlines.push('#MLB #HomeRun #Baseball #MLBShorts #Statcast');\nlines.push('');\nlines.push('VIDEOS:');\nlines.push('1. clip');\nlines.push('   ' + d);\nlines.push('2. clip');\nlines.push('   ' + a);\nlines.push('');\nlines.push('HOME RUN DATA:');\nlines.push('GamePk: ' + gamePk);\nlines.push('Batter: ' + batter);\nif (inning.trim()) lines.push('Inning: ' + inning.trim());\nconst postText = lines.join('\\n') + '\\n';\nconst baseDir = '/Users/benbirkhahn/HomerTrakker';\nconst postsDir = baseDir + '/MLB_HomeRun_Posts/' + today;\nconst videosDir = postsDir + '/videos';\nconst postPath = postsDir + '/tonights_homer_' + num + '_' + ts + '.txt';\nfunction basename(u){ try{ return new URL(u).pathname.split('/').pop() }catch(e){ return 'clip.mp4'; } }\nconst file1 = 'homer_' + num + '_1_' + basename(d);\nconst file2 = 'homer_' + num + '_2_animated_' + basename(a);\nconst video1Path = videosDir + '/' + file1;\nconst video2Path = videosDir + '/' + file2;\nreturn [{ json: { today, num, postText, postPath, postsDir, videosDir, d, a, video1Path, video2Path, gamePk } }];"
+      },
+      "id": "FnPost",
+      "name": "09 Build Post + Paths",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 2,
+      "position": [2100, 300]
+    },
+    {
+      "parameters": {
+        "command": "={{ 'mkdir -p \"' + $json.postsDir + '\" \"' + $json.videosDir + '\"' }}"
+      },
+      "id": "MkDirs",
+      "name": "10 Ensure Dirs",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 2,
+      "position": [2340, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "const data = Buffer.from($json.postText, 'utf8').toString('base64');\nreturn [{ json: $json, binary: { data: { data, mimeType: 'text/plain' } } }];"
+      },
+      "id": "FnPostBin",
+      "name": "11 Make Post Binary",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 2,
+      "position": [2580, 220]
+    },
+    {
+      "parameters": {
+        "filePath": "={{$json.postPath}}",
+        "binaryPropertyName": "data"
+      },
+      "id": "WritePost",
+      "name": "12 Write Post",
+      "type": "n8n-nodes-base.writeBinaryFile",
+      "typeVersion": 1,
+      "position": [2820, 220]
+    },
+    {
+      "parameters": {
+        "url": "={{$json.d}}",
+        "responseFormat": "file"
+      },
+      "id": "DL1",
+      "name": "13 Download Diamond",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2580, 360]
+    },
+    {
+      "parameters": {
+        "filePath": "={{$json.video1Path}}",
+        "binaryPropertyName": "data"
+      },
+      "id": "Save1",
+      "name": "14 Save Diamond",
+      "type": "n8n-nodes-base.writeBinaryFile",
+      "typeVersion": 1,
+      "position": [2820, 360]
+    },
+    {
+      "parameters": {
+        "url": "={{$json.a}}",
+        "responseFormat": "file"
+      },
+      "id": "DL2",
+      "name": "15 Download Animated",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2580, 500]
+    },
+    {
+      "parameters": {
+        "filePath": "={{$json.video2Path}}",
+        "binaryPropertyName": "data"
+      },
+      "id": "Save2",
+      "name": "16 Save Animated",
+      "type": "n8n-nodes-base.writeBinaryFile",
+      "typeVersion": 1,
+      "position": [2820, 500]
+    }
+  ],
+  "connections": {
+    "01 Cron": {
+      "main": [[{"node": "02 Compute Dates","type": "main","index": 0}]]
+    },
+    "02 Compute Dates": {
+      "main": [[
+        {"node": "03 Schedule Today","type": "main","index": 0},
+        {"node": "03b Schedule Yesterday","type": "main","index": 0}
+      ]]
+    },
+    "03 Schedule Today": {
+      "main": [[{"node": "04 Filter Active Games","type": "main","index": 0}]]
+    },
+    "03b Schedule Yesterday": {
+      "main": [[{"node": "04 Filter Active Games","type": "main","index": 1}]]
+    },
+    "04 Filter Active Games": {
+      "main": [[{"node": "05 Live Feed","type": "main","index": 0}]]
+    },
+    "05 Live Feed": {
+      "main": [[{"node": "06 Extract New HR Plays","type": "main","index": 0}]]
+    },
+    "06 Extract New HR Plays": {
+      "main": [[{"node": "07 Game Content","type": "main","index": 0}]]
+    },
+    "07 Game Content": {
+      "main": [[{"node": "08 Select 4000K + Animated","type": "main","index": 0}]]
+    },
+    "08 Select 4000K + Animated": {
+      "main": [[{"node": "09 Build Post + Paths","type": "main","index": 0}]]
+    },
+    "09 Build Post + Paths": {
+      "main": [[{"node": "10 Ensure Dirs","type": "main","index": 0}]]
+    },
+    "10 Ensure Dirs": {
+      "main": [[
+        {"node": "11 Make Post Binary","type": "main","index": 0},
+        {"node": "13 Download Diamond","type": "main","index": 0},
+        {"node": "15 Download Animated","type": "main","index": 0}
+      ]]
+    },
+    "11 Make Post Binary": {
+      "main": [[{"node": "12 Write Post","type": "main","index": 0}]]
+    },
+    "13 Download Diamond": {
+      "main": [[{"node": "14 Save Diamond","type": "main","index": 0}]]
+    },
+    "15 Download Animated": {
+      "main": [[{"node": "16 Save Animated","type": "main","index": 0}]]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "pinData": {},
+  "staticData": {}
+}
