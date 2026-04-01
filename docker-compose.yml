@@ -11,7 +11,7 @@ services:
       - N8N_UNSAFE_WORKFLOW_EXECUTE_COMMANDS=true
       - N8N_ENFORCEMENT_FS_FILE_ACCESS=false
       - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=false
-      - N8N_RESTRICT_FILE_ACCESS_TO=/root/HomerTrakker:/
+      - N8N_RESTRICT_FILE_ACCESS_TO=/data/HomerTrakker:/
       - TZ=America/New_York
       - N8N_HOST=localhost
       - N8N_PORT=5678
@@ -19,4 +19,4 @@ services:
       - WEBHOOK_URL=http://localhost:5678/
     volumes:
       - ~/.n8n:/root/.n8n
-      - /Users/benbirkhahn/HomerTrakker:/root/HomerTrakker
+      - /Users/benbirkhahn/HomerTrakker:/data/HomerTrakker
