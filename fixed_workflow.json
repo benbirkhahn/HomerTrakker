@@ -340,7 +340,7 @@
     },
     {
       "parameters": {
-        "command": "=mkdir -p \"/root/HomerTrakker/MLB_HomeRun_Posts/{{$json.today}}/videos\" && chmod -R 777 \"/root/HomerTrakker/MLB_HomeRun_Posts/{{$json.today}}\""
+        "command": "=mkdir -p \"/root/HomerTrakker/MLB_HomeRun_Posts/{{$json.today}}/videos\" && chmod -R 777 \"/root/HomerTrakker/MLB_HomeRun_Posts/{{$json.today}}\" && sleep 2"
       },
       "id": "177900fc-c94f-4c3b-bafd-f928c38b2724",
       "name": "10 Ensure Dirs1",
