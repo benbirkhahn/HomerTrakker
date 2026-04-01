@@ -1,6 +1,6 @@
 services:
   n8n:
-    image: docker.n8n.io/n8nio/n8n:latest
+    build: .
     container_name: n8n_hometrakker
     restart: unless-stopped
     user: root
@@ -9,6 +9,9 @@ services:
     environment:
       - NODES_EXCLUDE=[]
       - N8N_UNSAFE_WORKFLOW_EXECUTE_COMMANDS=true
+      - N8N_ENFORCEMENT_FS_FILE_ACCESS=false
+      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=false
+      - N8N_RESTRICT_FILE_ACCESS_TO=/root/HomerTrakker:/
       - TZ=America/New_York
       - N8N_HOST=localhost
       - N8N_PORT=5678

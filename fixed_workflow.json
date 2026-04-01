@@ -1,0 +1,619 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "url": "={{ 'https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=' + $json.today + '&hydrate=team,linescore' }}",
+        "options": {}
+      },
+      "id": "26b4060b-2281-47fc-ac5e-3ff2dc327576",
+      "name": "03 Schedule Today1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        -6848,
+        1088
+      ],
+      "retryOnFail": true,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "url": "={{ 'https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=' + $json.yday + '&hydrate=team,linescore' }}",
+        "options": {}
+      },
+      "id": "b3b2c85f-d48d-40d4-9ff3-f8ca522b265d",
+      "name": "03b Schedule Yesterday1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        -6848,
+        1280
+      ],
+      "retryOnFail": true,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "const all=$input.all().flatMap(it=>(it.json.dates||[]).flatMap(d=>d.games||[]));const now=Date.now(),pre=600000,post=21600000;const active=all.filter(g=>{try{const t=new Date(g.gameDate).getTime();return (t-pre)<=now && now<=(t+post);}catch{return false;}});return active.map(g=>({json:{gamePk:g.gamePk}}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -6624,
+        1184
+      ],
+      "id": "fcebbaa4-904c-4c65-aba5-5d0819c0b8f1",
+      "name": "04 Filter Active Games1"
+    },
+    {
+      "parameters": {
+        "url": "={{ 'https://statsapi.mlb.com/api/v1.1/game/' + $json.gamePk + '/feed/live' }}",
+        "options": {}
+      },
+      "id": "69e997fd-ed4d-4392-bab7-46374b92e9b2",
+      "name": "05 Live Feed1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        -6400,
+        1184
+      ],
+      "retryOnFail": true,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "const out=[];$input.all().forEach(it=>{const plays=it.json.liveData?.plays?.allPlays||[];const gamePk=it.json.gamePk;for(const p of plays){if(p.result?.eventType==='home_run') out.push({json:{gamePk,play:p}});}});return out;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -6176,
+        1184
+      ],
+      "id": "6d3e39b3-14aa-4af8-8bb2-dbadcbe1ce51",
+      "name": "06 Extract New HR Plays1"
+    },
+    {
+      "parameters": {
+        "url": "={{ 'https://statsapi.mlb.com/api/v1/game/' + $json.gamePk + '/content' }}",
+        "options": {}
+      },
+      "id": "6545e829-7574-4d05-91bf-056ed3eec795",
+      "name": "07 Game Content1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        -5952,
+        1184
+      ],
+      "retryOnFail": true,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "const plays=$items(\"06 Extract New HR Plays1\");const contents=$input.all();function asArr(x){return Array.isArray(x)?x:(x?[x]:[]);}function uniq(a){return Array.from(new Set(a));}function norm(s){return String(s||\"\").toLowerCase().replace(/[^a-z0-9]+/g,\" \").trim();}function lastName(s){const t=norm(s).split(\" \").filter(Boolean);return t.length?t[t.length-1]:\"\";}function prefer4000K(u){return u.find(x=>/4000k/i.test(x))||u[0]||null;}function getGamePkFromContent(c){const link=c?.link||\"\";const m=link.match(/game\\/(\\d+)\\/content/);if(m) return m[1];return String(c?.gamePk||c?.game_pk||\"\");}function collectItems(c){const items=[];const h=c?.highlights||{};items.push(...asArr(h?.highlights?.items));items.push(...asArr(h?.live?.items));const ed=c?.editorial||{};if(ed?.recap?.mlb) items.push(ed.recap.mlb);items.push(...asArr(ed?.recap?.items));items.push(...asArr(ed?.featured?.items));items.push(...asArr(ed?.highlights?.items));const m=c?.media||{};for(const g of asArr(m?.epg)) items.push(...asArr(g?.items));for(const g of asArr(m?.epgAlternate)) items.push(...asArr(g?.items));return items.filter(Boolean);}function getPlaybacks(it){const p=asArr(it?.playbacks).concat(asArr(it?.media?.playbacks));return uniq(p.map(pb=>pb?.url||\"\").filter(u=>typeof u===\"string\"&&/\\.mp4(\\?|$)/i.test(u)));}function getText(it){return norm(it?.headline||it?.title||it?.blurb||it?.description||it?.media?.title||\"\");}function getKeywordsAll(it){return asArr(it?.keywordsAll).concat(asArr(it?.media?.keywordsAll));}function extractPlayerIds(it){const ids=new Set();for(const k of getKeywordsAll(it)){const v=String(k?.value??\"\").toLowerCase();if(k?.playerId!=null) ids.add(String(k.playerId));if(k?.personId!=null) ids.add(String(k.personId));if(k?.player_id!=null) ids.add(String(k.player_id));if(k?.person_id!=null) ids.add(String(k.person_id));const m=v.match(/playerid-(\\d+)/);if(m) ids.add(m[1]);if(/^\\d+$/.test(v)) ids.add(v);}return ids;}function itemHasBatter(it,bId,bName){const ids=extractPlayerIds(it);if(ids.has(String(bId))) return true;const txt=getText(it);const ln=lastName(bName);const full=norm(bName);return (ln&&txt.includes(ln))||(full&&txt.includes(full));}const contentByGame={};for(const inp of contents){const cj=inp?.json??{};const gpk=getGamePkFromContent(cj);if(!gpk) continue;if(!contentByGame[gpk]) contentByGame[gpk]=[];contentByGame[gpk].push(...collectItems(cj));}function selectClips(gamePk,bId,bName){const items=contentByGame[String(gamePk)]||[];if(!items.length) return {d:null,a:null,pickedFrom:\"\",matchedBy:\"noContent\"};const hrItems=items.filter(it=>{const t=getText(it);return t.includes(\"home run\")||t.includes(\"homers\")||t.includes(\"homer\")});let candidates=hrItems.filter(it=>itemHasBatter(it,bId,bName));let matchedBy=\"keywordsAll.playerId|name\";if(!candidates.length){candidates=items.filter(it=>itemHasBatter(it,bId,bName));matchedBy=\"broad.nameOrId\";}let d=null,a=null,pickedFrom=\"\";for(const it of candidates){const urls=getPlaybacks(it);const diamond=urls.filter(u=>/mlb-cuts-diamond\\.mlb\\.com/i.test(u));const pd=prefer4000K(diamond);if(pd){d=pd;pickedFrom=it?.headline||it?.title||\"\";break;}}if(!d) return {d:null,a:null,pickedFrom:\"\",matchedBy:\"noDiamond\"};const darkroomItems=items.filter(it=>itemHasBatter(it,bId,bName)).map(it=>({it,urls:getPlaybacks(it)})).filter(x=>x.urls.some(u=>/darkroom-clips\\.mlb\\.com/i.test(u)));darkroomItems.sort((a,b)=>{const at=getText(a.it),bt=getText(b.it);const aHr=(at.includes(\"home run\")||at.includes(\"homers\")||at.includes(\"homer\"))?1:0;const bHr=(bt.includes(\"home run\")||bt.includes(\"homers\")||bt.includes(\"homer\"))?1:0;return bHr-aHr;});for(const x of darkroomItems){const pa=x.urls.find(u=>/darkroom-clips\\.mlb\\.com/i.test(u)&&/\\.mp4(\\?|$)/i.test(u));if(pa){a=pa;break;}}return {d,a,pickedFrom,matchedBy};}const out=[];for(const p of plays){const pj=p.json||{};const gamePk=pj.gamePk;const play=pj.play;if(!gamePk||!play) continue;const bId=play?.matchup?.batter?.id;const bName=play?.matchup?.batter?.fullName||\"\";const {d,a,pickedFrom,matchedBy}=selectClips(gamePk,bId,bName);if(!d) continue;out.push({json:{gamePk,play,d,a,debug:{matchedBy,pickedFrom,batter:bName,haveDarkroom:!!a}}});}return out;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -5728,
+        1184
+      ],
+      "id": "fa0be77c-5ee4-4a2c-80b1-998f5993bb02",
+      "name": "08 Select 4000K + Animated1",
+      "retryOnFail": true,
+      "alwaysOutputData": true,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "const j=$json;const gamePk=j.gamePk;const play=j.play;const batter=play?.matchup?.batter?.fullName||\"\";const pitcher=play?.matchup?.pitcher?.fullName||\"\";const inning=`${play?.about?.halfInning||\"\"} ${play?.about?.inning||\"\"}`.trim();const desc=play?.result?.description||\"\";const atBat=(play?.atBatIndex??0)+1;const num=`${gamePk}${String(atBat).padStart(3,'0')}`;const now=new Date();const today=now.toISOString().slice(0,10);const dateCompact=today.replace(/-/g,'');const timePart=now.toISOString().slice(11,19).replace(/:/g,'');const baseDir=\"/root/HomerTrakker/MLB_HomeRun_Posts\";const postsDir=`${baseDir}/${today}`;const videosDir=`${postsDir}/videos`;const d=j.d||null;const a=j.a||null;const dName=d?d.split('/').pop().split('?')[0]:null;const aName=a?a.split('/').pop().split('?')[0]:null;const video1Path=d?`${videosDir}/homer_${num}_1_${dName}`:null;const video2Path=a?`${videosDir}/homer_${num}_2_animated_${aName}`:null;const postText=`TONIGHT'S HOME RUN - READY FOR @homertrakker\n=======================================================\n\nCAPTION:\n🏠⚾ HOME RUN ALERT! ⚾🏠\n🔥 ${batter}\n⚾ vs ${pitcher}\n📊 ${inning}\n${desc}\n\nHASHTAGS:\n#MLB #HomeRun #Baseball #MLBShorts #Statcast\n\nVIDEOS:\n1. clip\n   ${d}\n2. clip\n   ${a||'null'}\n\nHOME RUN DATA:\nGamePk: ${gamePk}\nBatter: ${batter}\nInning: ${inning}\n`;const postPath=`${postsDir}/tonights_homer_${num}_${dateCompact}_${timePart}.txt`;return [{json:{today,num,postText,postPath,postsDir,videosDir,d,a,video1Path,video2Path,gamePk}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -5504,
+        1184
+      ],
+      "id": "e811591b-ac30-4846-a4dc-81bbf73f8faf",
+      "name": "09 Build Post + Paths",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const out=[];const src=$items(\"09 Build Post + Paths\",0)||[];for(const it of src){const j=it.json||{};const isMp4=(typeof j.d==='string' && /\\.mp4(\\?|$)/i.test(j.d));if(isMp4) out.push({json:j});}return out;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -5056,
+        1184
+      ],
+      "id": "15e27a97-8112-4717-a104-c6c7cab53f68",
+      "name": "Filter Diamond URLs"
+    },
+    {
+      "parameters": {
+        "url": "={{$json.d}}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          },
+          "timeout": 20000
+        }
+      },
+      "id": "1f7a7804-8971-4b67-808c-6b8a9b8f7e9e",
+      "name": "13 Download Diamond",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        -4832,
+        1184
+      ],
+      "retryOnFail": true,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "={{$json.video1Path}}",
+        "dataPropertyName": "=data",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        -4608,
+        1184
+      ],
+      "id": "b619f6e4-2ffe-4204-bfac-873ea94f23d5",
+      "name": "Save Diamond"
+    },
+    {
+      "parameters": {
+        "jsCode": "const out=[];const src=$items(\"09 Build Post + Paths\",0)||[];for(const it of src){const j=it.json||{};const isMp4=(typeof j.a==='string' && /\\.mp4(\\?|$)/i.test(j.a));if(isMp4) out.push({json:j});}return out;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -5056,
+        1376
+      ],
+      "id": "a9383a1d-348d-4c59-8156-fce3050a548a",
+      "name": "Filter Animated URLs"
+    },
+    {
+      "parameters": {
+        "url": "={{$json.a}}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          },
+          "timeout": 20000
+        }
+      },
+      "id": "6c8dab31-2d76-4c81-9f64-bb7d6e479810",
+      "name": "15 Download Animated",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        -4832,
+        1376
+      ],
+      "retryOnFail": true,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "={{$json.video2Path}}",
+        "dataPropertyName": "=data",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        -4608,
+        1376
+      ],
+      "id": "bd0db9a0-9665-4e26-aabc-99139e489444",
+      "name": "Save Animated"
+    },
+    {
+      "parameters": {
+        "command": "=/bin/zsh -lc 'source /root/HomerTrakker/.homer.env && export HOMER_REQUIRE_BOTH=1 HOMER_BROADCAST_MAX_SECS=15 HOMER_TOTAL_MAX_SECS=30; /opt/venv/bin/python3 /root/HomerTrakker/shorts_video_compiler.py {{$json[\"today\"]}}'"
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        -4160,
+        1184
+      ],
+      "id": "337ebc4a-11c8-4b7a-9939-7e41975251f3",
+      "name": "17 Compile Shorts"
+    },
+    {
+      "parameters": {
+        "triggerTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        }
+      },
+      "id": "fee3fafa-a4c6-4f15-b1ea-816e88f80eca",
+      "name": "01 Cron1",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [
+        -7296,
+        1184
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const tz = \"America/New_York\";function fmt(d){const ld=new Date(d.toLocaleString(\"en-US\",{timeZone:tz}));return ld.toISOString().slice(0,10);}const now=new Date();const today=fmt(now);const yday=fmt(new Date(now.getTime()-24*3600*1000));return [{today,yday}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -7072,
+        1184
+      ],
+      "id": "6ff329ea-b78b-40b9-8a02-3c0ec216e4d0",
+      "name": "02 Compute Dates"
+    },
+    {
+      "parameters": {
+        "jsCode": "const src=$items(\"09 Build Post + Paths\",0)||[];const out=[];for(const it of src){const j=it.json||{};const buf=Buffer.from(String(j.postText||''),'utf8');const bin=await this.helpers.prepareBinaryData(buf,'post.txt');out.push({json:j,binary:{data:bin}})}return out;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -4832,
+        992
+      ],
+      "id": "98225841-a8a3-4597-9c6c-7039e6b7dcf6",
+      "name": "11 Make Post Binary1"
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "={{$json.postPath}}",
+        "dataPropertyName": "=data",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        -4608,
+        992
+      ],
+      "id": "b2024f5f-e61c-4756-b032-3182bdcae72e",
+      "name": "12 Write Post1"
+    },
+    {
+      "parameters": {
+        "mode": "chooseBranch",
+        "numberInputs": 3
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -4384,
+        1168
+      ],
+      "id": "8a613f40-f8c4-48b4-8f90-bd0eefea6255",
+      "name": "Merge1"
+    },
+    {
+      "parameters": {
+        "command": "=/bin/zsh -lc 'source /root/HomerTrakker/.homer.env && export HOMER_REQUIRE_BOTH=1 HOMER_NOTIFY_PHONE=+19144142424; /opt/venv/bin/python3 /root/HomerTrakker/uploader_runner.py {{$item(0).$node[\"02 Compute Dates\"].json.today}}'"
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        -3936,
+        1184
+      ],
+      "id": "5204a3a2-d9da-4308-bbec-aeee936372bd",
+      "name": "18 Upload to YouTube1"
+    },
+    {
+      "parameters": {
+        "command": "=/bin/zsh -lc 'source /root/HomerTrakker/.homer.env && export HOMER_REQUIRE_BOTH=1; /opt/venv/bin/python3 /root/HomerTrakker/cleanup_media.py {{$item(0).$node[\"02 Compute Dates\"].json.today}}'"
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        -3712,
+        1184
+      ],
+      "id": "49471aca-b798-4d5d-a885-64110042b7dd",
+      "name": "19 Cleanup Media1"
+    },
+    {
+      "parameters": {
+        "command": "=mkdir -p \"/root/HomerTrakker/MLB_HomeRun_Posts/{{$json.today}}/videos\" && chmod -R 777 \"/root/HomerTrakker/MLB_HomeRun_Posts/{{$json.today}}\""
+      },
+      "id": "177900fc-c94f-4c3b-bafd-f928c38b2724",
+      "name": "10 Ensure Dirs1",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        -5312,
+        1184
+      ],
+      "alwaysOutputData": true
+    }
+  ],
+  "connections": {
+    "03 Schedule Today1": {
+      "main": [
+        [
+          {
+            "node": "04 Filter Active Games1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "03b Schedule Yesterday1": {
+      "main": [
+        [
+          {
+            "node": "04 Filter Active Games1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "04 Filter Active Games1": {
+      "main": [
+        [
+          {
+            "node": "05 Live Feed1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "05 Live Feed1": {
+      "main": [
+        [
+          {
+            "node": "06 Extract New HR Plays1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "06 Extract New HR Plays1": {
+      "main": [
+        [
+          {
+            "node": "07 Game Content1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "07 Game Content1": {
+      "main": [
+        [
+          {
+            "node": "08 Select 4000K + Animated1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "08 Select 4000K + Animated1": {
+      "main": [
+        [
+          {
+            "node": "09 Build Post + Paths",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "09 Build Post + Paths": {
+      "main": [
+        [
+          {
+            "node": "10 Ensure Dirs1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Diamond URLs": {
+      "main": [
+        [
+          {
+            "node": "13 Download Diamond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "13 Download Diamond": {
+      "main": [
+        [
+          {
+            "node": "Save Diamond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Diamond": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Filter Animated URLs": {
+      "main": [
+        [
+          {
+            "node": "15 Download Animated",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "15 Download Animated": {
+      "main": [
+        [
+          {
+            "node": "Save Animated",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Animated": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "17 Compile Shorts": {
+      "main": [
+        [
+          {
+            "node": "18 Upload to YouTube1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "01 Cron1": {
+      "main": [
+        [
+          {
+            "node": "02 Compute Dates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "02 Compute Dates": {
+      "main": [
+        [
+          {
+            "node": "03b Schedule Yesterday1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "03 Schedule Today1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "11 Make Post Binary1": {
+      "main": [
+        [
+          {
+            "node": "12 Write Post1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "12 Write Post1": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "node": "17 Compile Shorts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "18 Upload to YouTube1": {
+      "main": [
+        [
+          {
+            "node": "19 Cleanup Media1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "10 Ensure Dirs1": {
+      "main": [
+        [
+          {
+            "node": "11 Make Post Binary1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Filter Animated URLs",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Filter Diamond URLs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "524e124eb3d80897547ebc60a234f0ba7254bc0be6d8c9303ed17ca235ea759e"
+  }
+}
