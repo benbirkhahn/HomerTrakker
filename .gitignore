@@ -8,3 +8,7 @@ Shorts_Ready/
 Thumbnails_Ready/
 .homer_cache/
 logs/
+# Credentials - never commit
+config/youtube_credentials.json
+client_secret*.json
+
