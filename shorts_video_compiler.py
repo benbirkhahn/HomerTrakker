@@ -6,12 +6,11 @@ Shorts Video Compiler (FFmpeg-based)
 - Enforces <= 60s total duration for YouTube Shorts
 """
 
+import subprocess
 import os
 import re
 import json
-import subprocess
 import glob
-import subprocess
 from datetime import datetime
 from pathlib import Path
 
@@ -62,15 +61,17 @@ class ShortsCompiler:
             '-movflags','+faststart', out_path
         ]
         try:
-            subprocess.run(cmd, check=True, capture_output=True, text=True)
+            subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=60)
             return True
         except subprocess.CalledProcessError as e:
             print(f"❌ FFmpeg transcode failed: {in_path} -> {out_path}")
             if e.stderr:
-                # Print up to 4000 chars of stderr to keep logs readable
                 print(e.stderr.strip()[:4000])
             else:
                 print("No ffmpeg stderr captured.")
+            return False
+        except subprocess.TimeoutExpired:
+            print(f"⏱️  FFmpeg transcode timed out after 60s: {in_path} -> {out_path}")
             return False
 
     def trim_clip(self, in_path, out_path, seconds):
@@ -176,15 +177,19 @@ class ShortsCompiler:
             for p in processed:
                 f.write(f"file '{os.path.abspath(p)}'\n")
         out_path = os.path.join(self.out_dir, f"Homer_{homer_num}_{self.today}_SHORT.mp4")
-        subprocess.run([
-            'ffmpeg','-y','-f','concat','-safe','0','-i', list_file,
-            '-fflags','+genpts',
-            '-c:v','libx264','-preset','veryfast','-crf','23',
-            '-c:a','aac','-ar','48000','-ac','2','-b:a','128k',
-            '-movflags','+faststart', out_path
-        ], check=True, capture_output=True)
-        print(f"✅ Created: {out_path}")
-        return out_path
+        try:
+            subprocess.run([
+                'ffmpeg','-y','-f','concat','-safe','0','-i', list_file,
+                '-fflags','+genpts',
+                '-c:v','libx264','-preset','veryfast','-crf','23',
+                '-c:a','aac','-ar','48000','-ac','2','-b:a','128k',
+                '-movflags','+faststart', out_path
+            ], check=True, capture_output=True, timeout=60)
+            print(f"✅ Created: {out_path}")
+            return out_path
+        except subprocess.TimeoutExpired:
+            print(f"⏱️  FFmpeg concat timed out after 60s for {homer_num}")
+            return None
 
     def compile_all(self):
         if not os.path.exists(self.videos_dir):
