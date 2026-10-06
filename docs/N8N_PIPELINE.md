@@ -1,6 +1,6 @@
 # Building the HomerTrakker pipeline in n8n (end-to-end guide)
 
-This guide shows how to reproduce your current HomerTrakker automation in n8n. It covers detection, backfilling both angles (4000K broadcast + animated), stat enrichment, compile (requiring both angles), upload to YouTube, iMessage/Twilio notifications, and cleanup.
+This guide shows how to reproduce your current HomerTrakker automation in n8n. It covers detection, backfilling both angles (4000K broadcast + animated), stat enrichment, compile (requiring both angles), upload to YouTube, optional webhook/Twilio notifications, and cleanup.
 
 You can either:
 - Orchestrate your existing Python scripts from n8n (recommended; fastest)
@@ -13,7 +13,6 @@ You can either:
     - /Users/benbirkhahn/twitter_bot_env/bin/python3
     - Scripts live in /Users/benbirkhahn/HomerTrakker
   - ffmpeg and ffprobe available on PATH
-  - macOS Messages app logged in (for iMessage via osascript), if you want iMessage alerts from n8n
 - n8n Credentials set up for:
   - YouTube OAuth2 (scope: youtube.upload)
   - Twilio (optional) for SMS
@@ -25,11 +24,11 @@ Two workflows are sufficient:
 
 1) Minute Poller (runs every 1 minute)
    - Detect HRs during live window
-   - Generate posts (and iMessage you at detection)
+   - Generate posts
    - Backfill 4000K broadcast + animated URLs into posts
    - Download videos
    - Compile Shorts (require both angles)
-   - Upload to YouTube and iMessage the link
+   - Upload to YouTube
    - Cleanup sources
 
 2) Nightly Cleanup (runs 03:30)
@@ -64,15 +63,14 @@ Node list and wiring (recommended orchestrated approach):
             HOMER_AUTO_UPLOAD=1 \
             HOMER_BROADCAST_MAX_SECS=15 \
             HOMER_TOTAL_MAX_SECS=30 \
-            HOMER_REQUIRE_BOTH=1 \
-            HOMER_NOTIFY_PHONE=+1XXXXXXXXXX;
+            HOMER_REQUIRE_BOTH=1;
      # 0) Detect + generate posts (within live window)
      /Users/benbirkhahn/twitter_bot_env/bin/python3 /Users/benbirkhahn/HomerTrakker/homer_minute_poller.py || true
    '
    ```
    Notes:
    - This uses your existing poller which already:
-     - Generates the post (and sends detection iMessage)
+     - Generates the post
      - Backfills both angles into posts
      - Enriches Statcast
      - Downloads clips
@@ -281,21 +279,7 @@ If you prefer to decompose steps inside n8n, here is a blueprint using core node
 
 ## Notifications
 
-- iMessage (local Mac): Use Execute Command to run osascript, identical to your terminal test.
-```applescript path=null start=null
-osascript - "+1XXXXXXXXXX" "HomerTrakker: HR detected — {PLAYER} ({INNING})" <<'APPLESCRIPT'
-on run argv
-  set target to item 1 of argv
-  set textMsg to item 2 of argv
-  tell application "Messages"
-    set targetService to first service whose service type is iMessage
-    set targetBuddy to buddy target of targetService
-    send textMsg to targetBuddy
-  end tell
-end run
-APPLESCRIPT
-```
-- Twilio SMS (cloud‑friendly): Use Twilio node and configure credentials in n8n’s Credential store. Never hardcode secrets in commands.
+- Twilio SMS or webhook notifications are cloud-friendly options. Configure credentials in n8n’s Credential store and never hardcode secrets in commands.
 
 ## Upload‑once ledger in n8n
 
@@ -310,13 +294,12 @@ APPLESCRIPT
 ## Error handling
 
 - Set “Continue On Fail” on non‑critical steps (e.g., stat enrichment) to keep the workflow moving.
-- Add an Error Trigger workflow in n8n to ping you (Slack/Twilio/iMessage) if any step throws.
+- Add an Error Trigger workflow in n8n to ping you by Slack, Twilio, or webhook if any step throws.
 
 ## Security and secrets
 
 - Put OAuth tokens/keys into n8n Credentials (YouTube, Twilio) or environment variables.
 - Don’t echo or log secret values.
-- For iMessage, macOS will prompt once to allow automation; accept it.
 
 ## Appendix A: Minimal Function node snippets
 

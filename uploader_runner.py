@@ -2,9 +2,11 @@
 """
 Non-interactive YouTube uploader runner.
 Invoked by the minute poller to upload all compiled Shorts for a given date.
-Respects the upload-once ledger and iMessage notifications configured in youtube_homer_bot.py.
+Respects the upload-once ledger configured in youtube_homer_bot.py.
 """
+import subprocess
 import sys
+from pathlib import Path
 
 def main():
     from statcast_enricher import StatcastEnricher
@@ -16,10 +18,16 @@ def main():
         se.enrich_all()
     except Exception as e:
         print(f"⚠️  Statcast enricher failed (continuing): {e}")
+    try:
+        import youtube_queue_monitor
+        youtube_queue_monitor.main(["--apply"])
+    except Exception as e:
+        print(f"⚠️  YouTube queue monitor failed (continuing): {e}")
     bot = YouTubeHomeRunBot()
     # If auth failed (e.g., missing credentials), abort cleanly
     if not hasattr(bot, 'youtube') or not bot.youtube:
         print("❌ YouTube service not available; aborting upload")
+        print(f"🔐 Re-authenticate with: python3 {Path(__file__).resolve().with_name('youtube_homer_bot.py')} --reauth")
         sys.exit(2)
     bot.upload_all_homers(date_arg)
 

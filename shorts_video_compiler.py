@@ -11,6 +11,7 @@ import os
 import re
 import json
 import glob
+import shutil
 from datetime import datetime
 from pathlib import Path
 
@@ -18,10 +19,32 @@ BASE_DIR = str(Path(__file__).resolve().parent)
 
 from homer_timing_logger import timing_logger
 
+
+def load_local_env(path=Path(BASE_DIR) / '.homer.env'):
+    try:
+        if not path.exists():
+            return
+        for raw_line in path.read_text().splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith('#') or '=' not in line:
+                continue
+            key, value = line.split('=', 1)
+            key = key.strip()
+            value = re.sub(r"\s+#.*$", "", value).strip().strip('"').strip("'")
+            if key:
+                os.environ.setdefault(key, value)
+    except Exception as e:
+        print(f"⚠️  Could not load local env file {path}: {e}")
+
+
+load_local_env()
+
+
 class ShortsCompiler:
     BROADCAST_MAX_SECS = float(os.getenv('HOMER_BROADCAST_MAX_SECS', '15'))
     TOTAL_MAX_SECS = float(os.getenv('HOMER_TOTAL_MAX_SECS', '30'))
-    FALLBACK_TIMEOUT = float(os.getenv('HOMER_FALLBACK_TIMEOUT', '45'))
+    TRANSCODE_TIMEOUT = float(os.getenv('HOMER_TRANSCODE_TIMEOUT_SECS', os.getenv('HOMER_FALLBACK_TIMEOUT', '180')))
+    CONCAT_TIMEOUT = float(os.getenv('HOMER_CONCAT_TIMEOUT_SECS', '120'))
 
     def __init__(self, date_str=None, open_ui=False, require_both=None):
         self.today = date_str or datetime.now().strftime('%Y-%m-%d')
@@ -45,7 +68,15 @@ class ShortsCompiler:
         except:
             return 0.0
 
-    def make_vertical(self, in_path, out_path):
+    def expected_output_duration(self, broadcast_path, animated_path):
+        broadcast_duration = self.ffprobe_duration(broadcast_path) if broadcast_path else 0.0
+        animated_duration = self.ffprobe_duration(animated_path) if animated_path else 0.0
+        broadcast_use = min(broadcast_duration, self.BROADCAST_MAX_SECS)
+        animated_budget = max(0.0, self.TOTAL_MAX_SECS - broadcast_use)
+        animated_use = min(animated_duration, animated_budget)
+        return broadcast_use + animated_use
+
+    def make_vertical(self, in_path, out_path, max_seconds=None):
         # Create vertical 1080x1920 with blurred background (safer boxblur)
         fc = (
             "[0:v]split=2[bgsrc][fgsrc];"
@@ -53,15 +84,21 @@ class ShortsCompiler:
             "[fgsrc]scale=1080:-1:force_original_aspect_ratio=decrease[fg];"
             "[bg][fg]overlay=(W-w)/2:(H-h)/2,format=yuv420p"
         )
-        cmd = [
-            'ffmpeg','-y','-i', in_path,
+        cmd = ['ffmpeg', '-y']
+        # Limit decoding before the expensive scale/blur filter.  The old flow
+        # transcoded an entire source clip and only trimmed afterward, which
+        # made otherwise valid highlights hit the automation timeout.
+        if max_seconds and max_seconds > 0:
+            cmd += ['-t', str(max_seconds)]
+        cmd += [
+            '-i', in_path,
             '-filter_complex', ''.join(fc),
             '-r','30','-c:v','libx264','-preset','veryfast','-crf','23',
             '-c:a','aac','-ar','48000','-ac','2','-b:a','128k',
             '-movflags','+faststart', out_path
         ]
         try:
-            subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=60)
+            subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=self.TRANSCODE_TIMEOUT)
             return True
         except subprocess.CalledProcessError as e:
             print(f"❌ FFmpeg transcode failed: {in_path} -> {out_path}")
@@ -71,7 +108,7 @@ class ShortsCompiler:
                 print("No ffmpeg stderr captured.")
             return False
         except subprocess.TimeoutExpired:
-            print(f"⏱️  FFmpeg transcode timed out after 60s: {in_path} -> {out_path}")
+            print(f"⏱️  FFmpeg transcode timed out after {self.TRANSCODE_TIMEOUT:.0f}s: {in_path} -> {out_path}")
             return False
 
     def trim_clip(self, in_path, out_path, seconds):
@@ -88,6 +125,7 @@ class ShortsCompiler:
 
     def compile_homer(self, homer_num):
         print(f"🏠 Compile homer #{homer_num}")
+        out_path = os.path.join(self.out_dir, f"Homer_{homer_num}_{self.today}_SHORT.mp4")
         pattern = os.path.join(self.videos_dir, f"homer_{homer_num}_*.mp4")
         files = sorted(glob.glob(pattern))
         # Skip produced_* clips by default unless explicitly allowed
@@ -127,26 +165,50 @@ class ShortsCompiler:
         
         if self.require_both:
             if not (b and a):
-                # Check if we have a high-quality broadcast clip and should fall back
-                if b and '4000K' in os.path.basename(b):
-                    timing_logger.record_timeout(str(homer_num), at_bat_index)
-                    # Fall back to broadcast-only if we've waited long enough
-                    print(f"ℹ️ Only broadcast clip available for {homer_num}, checking fallback criteria...")
-                else:
-                    print("⏭️  Skipping compile: both broadcast and animated required (HOMER_REQUIRE_BOTH=1)")
+                timing_logger.record_timeout(str(homer_num), at_bat_index)
+                missing = "animated" if b else "broadcast"
+                print(f"⏭️  Skipping compile: missing {missing} clip and both angles are required (HOMER_REQUIRE_BOTH=1)")
+                return None
+            if os.path.exists(out_path) and os.path.getsize(out_path) > 0:
+                existing_duration = self.ffprobe_duration(out_path)
+                expected_duration = self.expected_output_duration(b, a)
+                if existing_duration >= max(1.0, expected_duration - 1.5):
+                    print(f"⏭️  Already compiled with both required angles: {out_path}")
+                    return out_path
+                print(
+                    "♻️  Rebuilding existing output; duration is too short for both "
+                    f"required angles ({existing_duration:.1f}s < expected {expected_duration:.1f}s): {out_path}"
+                )
+                try:
+                    os.remove(out_path)
+                except OSError as e:
+                    print(f"❌ Could not replace existing output: {e}")
                     return None
+        elif os.path.exists(out_path) and os.path.getsize(out_path) > 0:
+            print(f"⏭️  Already compiled: {out_path}")
+            return out_path
         if not selected:
             print("❌ Nothing selected")
             return None
 
         processed = []
+        processed_roles = []
         total = 0.0
         for idx, path in enumerate(selected, 1):
+            role = 'animated' if 'animated_' in os.path.basename(path) else 'broadcast'
             base = os.path.basename(path)
             v_out = os.path.join(self.temp_dir, f"{homer_num}_{idx}_v.mp4")
-            ok = self.make_vertical(path, v_out)
+            max_seconds = (
+                self.BROADCAST_MAX_SECS
+                if role == 'broadcast'
+                else max(0.0, self.TOTAL_MAX_SECS - self.BROADCAST_MAX_SECS)
+            )
+            ok = self.make_vertical(path, v_out, max_seconds=max_seconds)
             if not ok:
                 print(f"⏭️  Skipping angle due to ffmpeg error: {base}")
+                if self.require_both:
+                    print(f"🛑 Aborting compile: required {role} angle failed")
+                    return None
                 continue
             dur = self.ffprobe_duration(v_out)
             if idx == 1:  # broadcast segment cap
@@ -160,14 +222,24 @@ class ShortsCompiler:
                 trimmed = os.path.join(self.temp_dir, f"{homer_num}_{idx}_trim.mp4")
                 if self.trim_clip(v_out, trimmed, use):
                     processed.append(trimmed)
+                    processed_roles.append(role)
                 else:
                     print(f"⏭️  Skipping trimmed segment due to ffmpeg error: {os.path.basename(v_out)}")
+                    if self.require_both:
+                        print(f"🛑 Aborting compile: required {role} angle failed during trim")
+                        return None
                     continue
             else:
                 processed.append(v_out)
+                processed_roles.append(role)
             total += use
             if total >= self.TOTAL_MAX_SECS - 0.5:
                 break
+
+        if self.require_both and not {'broadcast', 'animated'}.issubset(set(processed_roles)):
+            missing_roles = sorted({'broadcast', 'animated'} - set(processed_roles))
+            print(f"🛑 Aborting compile: missing processed required angle(s): {', '.join(missing_roles)}")
+            return None
 
         if not processed:
             print("❌ Nothing processed")
@@ -176,19 +248,20 @@ class ShortsCompiler:
         with open(list_file,'w') as f:
             for p in processed:
                 f.write(f"file '{os.path.abspath(p)}'\n")
-        out_path = os.path.join(self.out_dir, f"Homer_{homer_num}_{self.today}_SHORT.mp4")
         try:
+            tmp_out_path = os.path.join(self.temp_dir, f"out_{homer_num}.mp4")
             subprocess.run([
                 'ffmpeg','-y','-f','concat','-safe','0','-i', list_file,
                 '-fflags','+genpts',
                 '-c:v','libx264','-preset','veryfast','-crf','23',
                 '-c:a','aac','-ar','48000','-ac','2','-b:a','128k',
-                '-movflags','+faststart', out_path
-            ], check=True, capture_output=True, timeout=60)
+                '-movflags','+faststart', tmp_out_path
+            ], check=True, capture_output=True, timeout=self.CONCAT_TIMEOUT)
+            shutil.move(tmp_out_path, out_path)
             print(f"✅ Created: {out_path}")
             return out_path
         except subprocess.TimeoutExpired:
-            print(f"⏱️  FFmpeg concat timed out after 60s for {homer_num}")
+            print(f"⏱️  FFmpeg concat timed out after {self.CONCAT_TIMEOUT:.0f}s for {homer_num}")
             return None
 
     def compile_all(self):
@@ -198,7 +271,7 @@ class ShortsCompiler:
         # Determine homers present
         homer_nums = set()
         for p in glob.glob(os.path.join(self.videos_dir, 'homer_*.mp4')):
-            m = re.search(r"homer_([0-9]+(?:-[0-9]+)?)_", os.path.basename(p))
+            m = re.search(r"homer_([A-Za-z0-9]+(?:-[A-Za-z0-9]+)?)_", os.path.basename(p))
             if m:
                 homer_nums.add(m.group(1))
         out = []

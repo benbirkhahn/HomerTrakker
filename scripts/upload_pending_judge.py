@@ -5,7 +5,13 @@ Uploads only the remaining Judge clips that are already compiled.
 Uses minimal YouTube scope to avoid re-auth.
 """
 import os
+import sys
 from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 from youtube_homer_bot import YouTubeHomeRunBot
 
 # Ensure minimal scope

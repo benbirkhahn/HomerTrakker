@@ -1,0 +1,15 @@
+📅 Date: 2026-10-06
+🔎 Enriching: tonights_homer_1_offline.txt
+✅ Saved: <TEMP_PATH>
+⏸️  HOMER_PAUSE active — exiting early
+test_all_saved_python_source_parses (test_recovery.RecoveryTests.test_all_saved_python_source_parses) ... ok
+test_baseline_matcher_and_statcast_single_event_offline (test_recovery.RecoveryTests.test_baseline_matcher_and_statcast_single_event_offline) ... ok
+test_core_has_no_n8n_execution_dependency (test_recovery.RecoveryTests.test_core_has_no_n8n_execution_dependency) ... ok
+test_paused_baseline_exits_before_state_network_or_pipeline (test_recovery.RecoveryTests.test_paused_baseline_exits_before_state_network_or_pipeline) ... ok
+test_recovery_workflow_is_disabled_reference_and_defaults_paused (test_recovery.RecoveryTests.test_recovery_workflow_is_disabled_reference_and_defaults_paused) ... ok
+test_snapshotted_source_hashes_match (test_recovery.RecoveryTests.test_snapshotted_source_hashes_match) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.075s
+
+OK

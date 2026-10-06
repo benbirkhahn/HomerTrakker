@@ -17,7 +17,6 @@ What it fixes:
 - Rename orphan Read/Write Files node to "12 Write Post" and rewire connections
 - Compile/Upload/Cleanup commands:
   * Forces /bin/zsh -lc '...' wrapping
-  * Adds HOMER_NOTIFY_PHONE export to upload command
 
 The script is idempotent; safe to run multiple times.
 """
@@ -33,10 +32,10 @@ SAVE_NODES = {
 READWRITE_POST_NAME = "Read/Write Files from Disk"
 WRITE_POST_NAME = "12 Write Post"
 
-COMPUTE_NODE_NAME = "02 Compute Dates1"  # adjust if your node has a different name
+COMPUTE_NODE_NAME = "02 Compute Dates"
 
 COMPILE_CMD = "/bin/zsh -lc 'export HOMER_REQUIRE_BOTH=1 HOMER_BROADCAST_MAX_SECS=15 HOMER_TOTAL_MAX_SECS=30; /Users/benbirkhahn/twitter_bot_env/bin/python3 /Users/benbirkhahn/HomerTrakker/shorts_video_compiler.py {{$item(0).$node[\"%s\"].json.today}}'" % COMPUTE_NODE_NAME
-UPLOAD_CMD  = "/bin/zsh -lc 'export HOMER_NOTIFY_PHONE=+19144142424; /Users/benbirkhahn/twitter_bot_env/bin/python3 /Users/benbirkhahn/HomerTrakker/uploader_runner.py {{$item(0).$node[\"%s\"].json.today}}'" % COMPUTE_NODE_NAME
+UPLOAD_CMD  = "/bin/zsh -lc '/Users/benbirkhahn/twitter_bot_env/bin/python3 /Users/benbirkhahn/HomerTrakker/uploader_runner.py {{$item(0).$node[\"%s\"].json.today}}'" % COMPUTE_NODE_NAME
 CLEAN_CMD   = "/bin/zsh -lc '/Users/benbirkhahn/twitter_bot_env/bin/python3 /Users/benbirkhahn/HomerTrakker/cleanup_media.py {{$item(0).$node[\"%s\"].json.today}}'" % COMPUTE_NODE_NAME
 
 

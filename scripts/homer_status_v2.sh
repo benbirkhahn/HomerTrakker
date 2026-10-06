@@ -12,7 +12,7 @@ TODAY=$(date +%F)
 # Colors (ANSI)
 B=$'\033[1m'; R=$'\033[31m'; G=$'\033[32m'; Y=$'\033[33m'; C=$'\033[36m'; Z=$'\033[0m'
 
-pid_list=$(pgrep -f "HomerTrakker/homer_minute_poller.py" | tr '\n' ' ' || true)
+pid_list=$(ps -axo pid=,command= | awk '/HomerTrakker\/.*homer_minute_poller\.py/ && !/awk/ {print $1}' | tr '\n' ' ' || true)
 
 print_line(){
   printf "%s\n" "$1"
@@ -58,8 +58,8 @@ fi
 
 # Require-both flag
 REQ=${HOMER_REQUIRE_BOTH:-}
-if [[ -z "$REQ" ]]; then
-  REQ=$(ps -fp $(pgrep -f "HomerTrakker/homer_minute_poller.py" | head -n1) 2>/dev/null | grep -oE "HOMER_REQUIRE_BOTH=\S+" | cut -d= -f2 || true)
+if [[ -z "$REQ" && -f "$BASE_DIR/.homer.env" ]]; then
+  REQ=$(awk -F= '/^[[:space:]]*HOMER_REQUIRE_BOTH=/{gsub(/[[:space:]"'"'"']/,"",$2); print $2; exit}' "$BASE_DIR/.homer.env")
 fi
 if [[ "$REQ" == "1" ]]; then
   print_line "${G}Require both clips: ON${Z}"

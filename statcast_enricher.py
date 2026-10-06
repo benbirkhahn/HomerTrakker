@@ -5,10 +5,10 @@ Reads home run post files and enriches them with Statcast data (exit velocity, l
 using the MLB Stats API, then writes JSON files the YouTube bot can use.
 """
 
+import subprocess
 import os
 import re
 import json
-import subprocess
 import urllib.request
 import urllib.parse
 from datetime import datetime
@@ -203,7 +203,7 @@ class StatcastEnricher:
 
         # Save JSON next to posts
         # Determine homer number from filename (supports gamePk-atBatIndex)
-        m = re.search(r"tonights_homer_([0-9]+(?:-[0-9]+)?)_", os.path.basename(post_path))
+        m = re.search(r"tonights_homer_([A-Za-z0-9]+(?:-[A-Za-z0-9]+)?)_", os.path.basename(post_path))
         homer_num = m.group(1) if m else 'unknown'
         out_path = os.path.join(self.output_dir, f"homer_{homer_num}.json")
         with open(out_path, 'w') as f:

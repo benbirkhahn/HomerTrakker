@@ -4,6 +4,7 @@ Download Home Run Videos - Gets all video files for Instagram posting
 Downloads the actual .mp4 files from the URLs in your home run posts
 """
 
+import subprocess
 import urllib.request
 import os
 import re
@@ -58,18 +59,28 @@ def download_video(url, filename):
     """Download a video file"""
     try:
         print(f"📥 Downloading: {filename}")
+        timeout = int(os.getenv("HOMER_DOWNLOAD_TIMEOUT_SECS", "45"))
         
         # Create request with headers to avoid blocking
         req = urllib.request.Request(url)
         req.add_header('User-Agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36')
         
-        with urllib.request.urlopen(req) as response:
+        with urllib.request.urlopen(req, timeout=timeout) as response:
             with open(filename, 'wb') as f:
-                f.write(response.read())
+                while True:
+                    chunk = response.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    f.write(chunk)
         
         print(f"✅ Downloaded: {filename}")
         return True
     except Exception as e:
+        try:
+            if os.path.exists(filename) and os.path.getsize(filename) == 0:
+                os.remove(filename)
+        except Exception:
+            pass
         print(f"❌ Failed to download {filename}: {e}")
         return False
 
@@ -86,7 +97,7 @@ def check_missing_animated(post_file: str, videos_dir: str) -> bool:
             return False
             
         # Check if we have the animated file
-        batter_match = re.search(r'tonights_homer_([0-9]+(?:-[0-9]+)?)_', os.path.basename(post_file))
+        batter_match = re.search(r'tonights_homer_([A-Za-z0-9]+(?:-[A-Za-z0-9]+)?)_', os.path.basename(post_file))
         homer_num = batter_match.group(1) if batter_match else '0'
         
         animated_pattern = f"homer_{homer_num}_*_animated_*.mp4"
@@ -188,7 +199,7 @@ def main():
         file_path = os.path.join(posts_dir, post_file)
         
         # Extract batter name from filename for folder organization
-        batter_match = re.search(r'tonights_homer_([0-9]+(?:-[0-9]+)?)_', post_file)
+        batter_match = re.search(r'tonights_homer_([A-Za-z0-9]+(?:-[A-Za-z0-9]+)?)_', post_file)
         homer_num = batter_match.group(1) if batter_match else str(i)
         
         print(f"🏠 Processing Home Run #{homer_num}")

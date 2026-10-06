@@ -5,9 +5,9 @@
 set -euo pipefail
 
 BASE_DIR="${0:A:h}/.."
-PY="/Users/benbirkhahn/twitter_bot_env/bin/python3"
 LOG="$BASE_DIR/logs/homer_poller.log"
 ENV_FILE="$BASE_DIR/.homer.env"
+RUNNER="$BASE_DIR/scripts/run_homer_poller_once.sh"
 
 ensure_dirs(){
   mkdir -p "$BASE_DIR/logs"
@@ -19,7 +19,9 @@ load_env(){
 }
 
 pids(){
-  pgrep -f "HomerTrakker/homer_minute_poller.py" || true
+  # macOS process arguments preserve the scripts/../ segment used by the
+  # runner, so matching the literal path can miss a healthy poller.
+  ps -axo pid=,command= | awk '/HomerTrakker\/.*homer_minute_poller\.py/ && !/awk/ {print $1}'
 }
 
 start(){
@@ -32,8 +34,8 @@ start(){
   : ${HOMER_BROADCAST_MAX_SECS:=15}
   : ${HOMER_TOTAL_MAX_SECS:=30}
   : ${HOMER_REQUIRE_BOTH:=1}
-  : ${HOMER_NOTIFY_PHONE:=""}
-  nohup /bin/zsh -lc 'export HOMER_PAUSE='$HOMER_PAUSE' HOMER_AUTO_UPLOAD='$HOMER_AUTO_UPLOAD' HOMER_BROADCAST_MAX_SECS='$HOMER_BROADCAST_MAX_SECS' HOMER_TOTAL_MAX_SECS='$HOMER_TOTAL_MAX_SECS' HOMER_REQUIRE_BOTH='$HOMER_REQUIRE_BOTH' HOMER_NOTIFY_PHONE='$HOMER_NOTIFY_PHONE'; while true; do '$PY' '$BASE_DIR'/homer_minute_poller.py || true; sleep 60; done' > "$LOG" 2>&1 &
+  chmod +x "$RUNNER"
+  nohup /bin/zsh -lc 'while true; do /bin/zsh "'$RUNNER'" || true; sleep 60; done' > "$LOG" 2>&1 &
   sleep 1
   echo "Started. PIDs: $(pids | tr '\n' ' ')"
 }
@@ -41,7 +43,17 @@ start(){
 stop(){
   local p; p=$(pids)
   if [[ -z "$p" ]]; then echo "Poller not running"; return 0; fi
-  pkill -f "HomerTrakker/homer_minute_poller.py" || true
+  # A poller can be waiting on a downloader/compiler/uploader.  Stop children
+  # first so none are orphaned and left holding the single-instance lock.
+  terminate_tree(){
+    local parent="$1" child
+    for child in $(pgrep -P "$parent" 2>/dev/null || true); do
+      terminate_tree "$child"
+    done
+    kill "$parent" 2>/dev/null || true
+  }
+  for p in $p; do terminate_tree "$p"; done
+  sleep 1
   echo "Stopped."
 }
 

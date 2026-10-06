@@ -1,0 +1,5 @@
+{
+  "filesScanned": 82,
+  "findings": [],
+  "method": "known credential signatures, JSON values, contact literals and forbidden paths; not a proof against every possible secret"
+}

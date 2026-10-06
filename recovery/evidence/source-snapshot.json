@@ -1,0 +1,396 @@
+{
+  "captureDate": "2026-10-06",
+  "localHead": "5362ead1fff266c162241315aacf188b381fa062",
+  "files": [
+    {
+      "path": ".gitignore",
+      "liveSha256": "dc495248f8f0d3d8b3ad0b224fad1e1225c52b9bf3d9b1af7c08540b0aa39ce9",
+      "backupSha256": "630fb50911c9c5de35c9df52750dad7d747d0d712d2b69522579111e3a7464d2",
+      "sanitized": true
+    },
+    {
+      "path": "Dockerfile",
+      "liveSha256": "487204a0d420fae28bce318e0f450b3355ca11434ffa69004b1d7f0dbdac32e9",
+      "backupSha256": "487204a0d420fae28bce318e0f450b3355ca11434ffa69004b1d7f0dbdac32e9",
+      "sanitized": false
+    },
+    {
+      "path": "IMPORT_WORKFLOW.md",
+      "liveSha256": "4c85121dc4de3d88d6b4b773a254ddd1b952f9e4fbab37d097fc76ae96a3cd26",
+      "backupSha256": "4c85121dc4de3d88d6b4b773a254ddd1b952f9e4fbab37d097fc76ae96a3cd26",
+      "sanitized": false
+    },
+    {
+      "path": "N8N_DASHBOARD_QUICKREF.md",
+      "liveSha256": "1d45fbd4c17725bd1037adeafd8225143c0f17d2f8c91c8a99b29f6d09f1785f",
+      "backupSha256": "1d45fbd4c17725bd1037adeafd8225143c0f17d2f8c91c8a99b29f6d09f1785f",
+      "sanitized": false
+    },
+    {
+      "path": "N8N_DASHBOARD_SETUP.md",
+      "liveSha256": "3e64e4a4babd7456cf641c72603ef1299fd06150c965001aa0a63c0966d2386d",
+      "backupSha256": "3e64e4a4babd7456cf641c72603ef1299fd06150c965001aa0a63c0966d2386d",
+      "sanitized": false
+    },
+    {
+      "path": "QUICKSTART.md",
+      "liveSha256": "ba7ade00496af7810069e1f1bc2dab6f2ae694e5bd3a873acee96a1688adefcc",
+      "backupSha256": "c73ae085b3011e7ab2a66622e43cb1615402641f87d1ce87ab177c12dc5e8bd3",
+      "sanitized": true
+    },
+    {
+      "path": "README.md",
+      "liveSha256": "34541f59d13c4f8868785c806264913690997eb9c29952851d931994da8df203",
+      "backupSha256": "2578c401b1df62d518a3bfacb4ad1b5640f6f58cf50fd9fafc2d2dd6c48414da",
+      "sanitized": true
+    },
+    {
+      "path": "TROUBLESHOOTING_N8N_DOCKER.md",
+      "liveSha256": "a6c18cc7187c76ca36f1012ef517b7ad1dea73fb7fc3a7a1ce60ab0c7418dff4",
+      "backupSha256": "a6c18cc7187c76ca36f1012ef517b7ad1dea73fb7fc3a7a1ce60ab0c7418dff4",
+      "sanitized": false
+    },
+    {
+      "path": "backfill_homers.py",
+      "liveSha256": "230c4d10b94cefa8c74b45e4a2d6e2ca25a90270e55f2bfc84b1a19a96793039",
+      "backupSha256": "230c4d10b94cefa8c74b45e4a2d6e2ca25a90270e55f2bfc84b1a19a96793039",
+      "sanitized": false
+    },
+    {
+      "path": "cleanup_media.py",
+      "liveSha256": "053c3e87955653fb91faade151c6de4843f0a6ba00cd8aca6ae576e5d14a2248",
+      "backupSha256": "053c3e87955653fb91faade151c6de4843f0a6ba00cd8aca6ae576e5d14a2248",
+      "sanitized": false
+    },
+    {
+      "path": "docker-compose.yml",
+      "liveSha256": "a3906a416d3494b3178e13f6441ac5c14be609ae5f37103b286ae1333f8aec12",
+      "backupSha256": "41a8a41fa4ef801b6c08d11bef87734923df6d7c577b66becc3f7256ef58f6e2",
+      "sanitized": true
+    },
+    {
+      "path": "docs/N8N_PIPELINE.md",
+      "liveSha256": "02210d16f0dd311f938202ae9fd25bdc511b2cee4cebb7ea52c813e127947f6a",
+      "backupSha256": "02210d16f0dd311f938202ae9fd25bdc511b2cee4cebb7ea52c813e127947f6a",
+      "sanitized": false
+    },
+    {
+      "path": "docs/OPERATIONS_QUICKSTART.md",
+      "liveSha256": "e7c2fff92dd17cc218a2d44bb44c48b77275d879def989adf3991264b908850a",
+      "backupSha256": "e7c2fff92dd17cc218a2d44bb44c48b77275d879def989adf3991264b908850a",
+      "sanitized": false
+    },
+    {
+      "path": "docs/flowchart.mmd",
+      "liveSha256": "4fef715bab9a4808ac0c348a9db736eb0d381b9956ddf68ec77d564c28c09e3c",
+      "backupSha256": "4fef715bab9a4808ac0c348a9db736eb0d381b9956ddf68ec77d564c28c09e3c",
+      "sanitized": false
+    },
+    {
+      "path": "docs/sequence.mmd",
+      "liveSha256": "6d07dea7d38fe67b41b59a2c246b9619c2813a022dbc996d3a4e79e12e3ec616",
+      "backupSha256": "6d07dea7d38fe67b41b59a2c246b9619c2813a022dbc996d3a4e79e12e3ec616",
+      "sanitized": false
+    },
+    {
+      "path": "download_highlights.py",
+      "liveSha256": "cce050effb02c136dbd528d7c49a95da77c726db1259601eec3bd27c73a974fd",
+      "backupSha256": "cce050effb02c136dbd528d7c49a95da77c726db1259601eec3bd27c73a974fd",
+      "sanitized": false
+    },
+    {
+      "path": "download_homer_videos.py",
+      "liveSha256": "80c147ed819c1ed836bcfa561fe98c59807d5ac4f5f81ffa0662f7d4ac7ef3f7",
+      "backupSha256": "80c147ed819c1ed836bcfa561fe98c59807d5ac4f5f81ffa0662f7d4ac7ef3f7",
+      "sanitized": false
+    },
+    {
+      "path": "extract_yankees_clips.py",
+      "liveSha256": "2ca7510b200d201801696832aa9f51c5bf1cfcc111aaeee4e03c06332a2f68f1",
+      "backupSha256": "2ca7510b200d201801696832aa9f51c5bf1cfcc111aaeee4e03c06332a2f68f1",
+      "sanitized": false
+    },
+    {
+      "path": "generate_audit_workflow.py",
+      "liveSha256": "ee877974466f1224111198bc483bf90b9289f6917b267ad881d372a130510b59",
+      "backupSha256": "ee877974466f1224111198bc483bf90b9289f6917b267ad881d372a130510b59",
+      "sanitized": false
+    },
+    {
+      "path": "generate_audit_workflow_webhook.py",
+      "liveSha256": "0011d96fcf67f79ac237548a2c1a2d26cdbadffd8b475fb473964fde48e21a3c",
+      "backupSha256": "0011d96fcf67f79ac237548a2c1a2d26cdbadffd8b475fb473964fde48e21a3c",
+      "sanitized": false
+    },
+    {
+      "path": "get_high_quality.py",
+      "liveSha256": "0f123c0fef749ec3db03dcb03bfaa45450e57be8d67486436bebb4ae835684f9",
+      "backupSha256": "0f123c0fef749ec3db03dcb03bfaa45450e57be8d67486436bebb4ae835684f9",
+      "sanitized": false
+    },
+    {
+      "path": "get_homer_angles.py",
+      "liveSha256": "65006b566a8c7b4bdbd4e329189e5b0ce724ab2ba47ad1fade78098ba120042e",
+      "backupSha256": "65006b566a8c7b4bdbd4e329189e5b0ce724ab2ba47ad1fade78098ba120042e",
+      "sanitized": false
+    },
+    {
+      "path": "get_mlb_clips.py",
+      "liveSha256": "601b71e2320ad398932c8c6b1deaeec1cffbbaaf0a395f29f30fb75c80338031",
+      "backupSha256": "601b71e2320ad398932c8c6b1deaeec1cffbbaaf0a395f29f30fb75c80338031",
+      "sanitized": false
+    },
+    {
+      "path": "homer_clip_matcher.py",
+      "liveSha256": "53edd906bec99df7928223794f6966cee59a14bc03199b66c42ca698803deaf2",
+      "backupSha256": "53edd906bec99df7928223794f6966cee59a14bc03199b66c42ca698803deaf2",
+      "sanitized": false
+    },
+    {
+      "path": "homer_minute_poller.py",
+      "liveSha256": "8051ae9b7b7a1c116c27f8c82b6dd1e3013de8b448f132573e37f8831daa2aa5",
+      "backupSha256": "8051ae9b7b7a1c116c27f8c82b6dd1e3013de8b448f132573e37f8831daa2aa5",
+      "sanitized": false
+    },
+    {
+      "path": "homer_monitor_dashboard.py",
+      "liveSha256": "9df33a3e74eb1a4c79d6daee666797e1b255a719cff2ac374deddb0c10bfd9bd",
+      "backupSha256": "9df33a3e74eb1a4c79d6daee666797e1b255a719cff2ac374deddb0c10bfd9bd",
+      "sanitized": false
+    },
+    {
+      "path": "homer_timing_logger.py",
+      "liveSha256": "36349746fd0347885f25b33cc27c1a33c0b47cd10670b5bad1d3073e6958be48",
+      "backupSha256": "36349746fd0347885f25b33cc27c1a33c0b47cd10670b5bad1d3073e6958be48",
+      "sanitized": false
+    },
+    {
+      "path": "install_homer_cron.sh",
+      "liveSha256": "49b6c8488f48fdb2e7742d31ee54bf69a2ef5e0f0bf74fd5d98280d75d3b147e",
+      "backupSha256": "49b6c8488f48fdb2e7742d31ee54bf69a2ef5e0f0bf74fd5d98280d75d3b147e",
+      "sanitized": false
+    },
+    {
+      "path": "mlb_alt_angles.py",
+      "liveSha256": "d98e660e70c48eadc2660a7ef182518249e494f12efb106f0bfc1f226e8618cb",
+      "backupSha256": "d98e660e70c48eadc2660a7ef182518249e494f12efb106f0bfc1f226e8618cb",
+      "sanitized": false
+    },
+    {
+      "path": "mlb_film_room.py",
+      "liveSha256": "49552653bf9d3a78a30c3bbf4fcf9406b46528944d37182f5d5f060dd08c1e97",
+      "backupSha256": "49552653bf9d3a78a30c3bbf4fcf9406b46528944d37182f5d5f060dd08c1e97",
+      "sanitized": false
+    },
+    {
+      "path": "mlb_game_clips.py",
+      "liveSha256": "9f44673c109e9a39da831bafdc8fa8abc98b366c04a36aac18f15c6ecbd63e0d",
+      "backupSha256": "9f44673c109e9a39da831bafdc8fa8abc98b366c04a36aac18f15c6ecbd63e0d",
+      "sanitized": false
+    },
+    {
+      "path": "mlb_gameday_clips.py",
+      "liveSha256": "a86e9fddb3bd4771a09bc3a511b16d59b9a17b4e559ab7772fa4a7132277c287",
+      "backupSha256": "a86e9fddb3bd4771a09bc3a511b16d59b9a17b4e559ab7772fa4a7132277c287",
+      "sanitized": false
+    },
+    {
+      "path": "mlb_gd_clips.py",
+      "liveSha256": "6b5899f6d733e28793558030cceaa2b61ed738a31075cbc06d4b435ce71c1363",
+      "backupSha256": "6b5899f6d733e28793558030cceaa2b61ed738a31075cbc06d4b435ce71c1363",
+      "sanitized": false
+    },
+    {
+      "path": "n8n_audit_logger.py",
+      "liveSha256": "e79f366afc791e47a403ed93963100292fc6ff5a1b8ae0b21776920f3270efa7",
+      "backupSha256": "e79f366afc791e47a403ed93963100292fc6ff5a1b8ae0b21776920f3270efa7",
+      "sanitized": false
+    },
+    {
+      "path": "n8n_audit_snippets.py",
+      "liveSha256": "fac6e60a471abd0df4e0e844b8c0fc41b1f43b6361cf88310403fa35927a54ae",
+      "backupSha256": "fac6e60a471abd0df4e0e844b8c0fc41b1f43b6361cf88310403fa35927a54ae",
+      "sanitized": false
+    },
+    {
+      "path": "n8n_audit_webhook.py",
+      "liveSha256": "150578d0cf431ba97b470bb6326a35b93e04bc97854d53dc00ab7b54c637f78c",
+      "backupSha256": "150578d0cf431ba97b470bb6326a35b93e04bc97854d53dc00ab7b54c637f78c",
+      "sanitized": false
+    },
+    {
+      "path": "n8n_workflow_dashboard.py",
+      "liveSha256": "23ad29d990757f4d3f999e19ef5a0fdc8393de25034e8cbe98b47724e0cb17c6",
+      "backupSha256": "23ad29d990757f4d3f999e19ef5a0fdc8393de25034e8cbe98b47724e0cb17c6",
+      "sanitized": false
+    },
+    {
+      "path": "optimize_youtube_queue.py",
+      "liveSha256": "a046511380e85bdab0f31ff18ae1ce85d03e88f9220e3025b3b6dd41c8d541c0",
+      "backupSha256": "a046511380e85bdab0f31ff18ae1ce85d03e88f9220e3025b3b6dd41c8d541c0",
+      "sanitized": false
+    },
+    {
+      "path": "process_clips.py",
+      "liveSha256": "f2b5e2e822ddcbdfd9ae7d36f76231c01fe9288454bf38737197fa925aa98512",
+      "backupSha256": "f2b5e2e822ddcbdfd9ae7d36f76231c01fe9288454bf38737197fa925aa98512",
+      "sanitized": false
+    },
+    {
+      "path": "requirements-monitor.txt",
+      "liveSha256": "43689dc21e1f8fa8f01e2231a8d2af09eeb4d561cc1d0b367d7669591964afd5",
+      "backupSha256": "43689dc21e1f8fa8f01e2231a8d2af09eeb4d561cc1d0b367d7669591964afd5",
+      "sanitized": false
+    },
+    {
+      "path": "reschedule_youtube_posts.py",
+      "liveSha256": "e6ab891ad6b1e7d714d7a540ee82d12b559025c5e04c1554ee32df54685dd3c2",
+      "backupSha256": "e6ab891ad6b1e7d714d7a540ee82d12b559025c5e04c1554ee32df54685dd3c2",
+      "sanitized": false
+    },
+    {
+      "path": "run_date_pipeline.py",
+      "liveSha256": "91d0b77fa2cb1916ae27ecb52e091b865741123de30238ce094db41bb712e6ff",
+      "backupSha256": "91d0b77fa2cb1916ae27ecb52e091b865741123de30238ce094db41bb712e6ff",
+      "sanitized": false
+    },
+    {
+      "path": "run_monitor.sh",
+      "liveSha256": "e568fa6d64a30780b8dc9d5860a3b3bf13fb1b1a408bf5a83d3f221d71b79ea7",
+      "backupSha256": "e568fa6d64a30780b8dc9d5860a3b3bf13fb1b1a408bf5a83d3f221d71b79ea7",
+      "sanitized": false
+    },
+    {
+      "path": "scripts/clean_homer_cache.sh",
+      "liveSha256": "273e005be8e491c6dc8f36f1f4ff8ed6fb87f1dc86670f277131cdb08ca9f1ea",
+      "backupSha256": "273e005be8e491c6dc8f36f1f4ff8ed6fb87f1dc86670f277131cdb08ca9f1ea",
+      "sanitized": false
+    },
+    {
+      "path": "scripts/fix_n8n_workflow.py",
+      "liveSha256": "505243a796b795cc72194a438b1d6d9a946551dda21f6464aa36587ab4dcf56b",
+      "backupSha256": "505243a796b795cc72194a438b1d6d9a946551dda21f6464aa36587ab4dcf56b",
+      "sanitized": false
+    },
+    {
+      "path": "scripts/homer_cache.js",
+      "liveSha256": "9e1683e6ba5c85edbe589fb2b2e9adde1511c6a61d2810f426487184b85995f5",
+      "backupSha256": "9e1683e6ba5c85edbe589fb2b2e9adde1511c6a61d2810f426487184b85995f5",
+      "sanitized": false
+    },
+    {
+      "path": "scripts/homer_status.sh",
+      "liveSha256": "27c440f1c3e09219f1d406186eca661e673ee018522ea2a8230faaf9a88f6349",
+      "backupSha256": "27c440f1c3e09219f1d406186eca661e673ee018522ea2a8230faaf9a88f6349",
+      "sanitized": false
+    },
+    {
+      "path": "scripts/homer_status_v2.sh",
+      "liveSha256": "94bc1c847549e82b5cb6d401ae8e4fe140f87bb674ad37a939eaebd6af18253c",
+      "backupSha256": "94bc1c847549e82b5cb6d401ae8e4fe140f87bb674ad37a939eaebd6af18253c",
+      "sanitized": false
+    },
+    {
+      "path": "scripts/homerctl.sh",
+      "liveSha256": "40b534ca6e998ac14cdc12ee232a66129eaa0db7c5c71a34a2ee6642666dccbc",
+      "backupSha256": "40b534ca6e998ac14cdc12ee232a66129eaa0db7c5c71a34a2ee6642666dccbc",
+      "sanitized": false
+    },
+    {
+      "path": "scripts/run_homer_poller_once.sh",
+      "liveSha256": "c72f74c299211352c75987f1c95a00f3a7539a0d2ca30d91c83d59676337c4be",
+      "backupSha256": "c72f74c299211352c75987f1c95a00f3a7539a0d2ca30d91c83d59676337c4be",
+      "sanitized": false
+    },
+    {
+      "path": "scripts/upload_pending_judge.py",
+      "liveSha256": "8c9a12713296588abdbe8194d6abefd23185ce15f77a806e6afd8a8487a02f6c",
+      "backupSha256": "8c9a12713296588abdbe8194d6abefd23185ce15f77a806e6afd8a8487a02f6c",
+      "sanitized": false
+    },
+    {
+      "path": "setup_twitter_bot.sh",
+      "liveSha256": "f58180a8f5d33741da1a32c6b202fee4690cf57d7c2c6f6c60b2f85db3c9dfef",
+      "backupSha256": "f58180a8f5d33741da1a32c6b202fee4690cf57d7c2c6f6c60b2f85db3c9dfef",
+      "sanitized": false
+    },
+    {
+      "path": "setup_youtube_bot.sh",
+      "liveSha256": "44047d47fdf2d15ca13938b6449040806a9807cc47a37feb531710f130986419",
+      "backupSha256": "44047d47fdf2d15ca13938b6449040806a9807cc47a37feb531710f130986419",
+      "sanitized": false
+    },
+    {
+      "path": "shorts_video_compiler.py",
+      "liveSha256": "13450234428e9de155190e52fcdbf5f404e4aca8d935b02ec113d40f41926a2d",
+      "backupSha256": "13450234428e9de155190e52fcdbf5f404e4aca8d935b02ec113d40f41926a2d",
+      "sanitized": false
+    },
+    {
+      "path": "statcast_enricher.py",
+      "liveSha256": "7ed9f7dbc0a1422ba561923d301f92fa6723dd4e04b2fb069c55bcd237c11a8b",
+      "backupSha256": "7ed9f7dbc0a1422ba561923d301f92fa6723dd4e04b2fb069c55bcd237c11a8b",
+      "sanitized": false
+    },
+    {
+      "path": "switch_youtube_account.sh",
+      "liveSha256": "11cb6e19d2a2031c856926a46412f57a3a8e1ee1324bfc8027468227c4519988",
+      "backupSha256": "11cb6e19d2a2031c856926a46412f57a3a8e1ee1324bfc8027468227c4519988",
+      "sanitized": false
+    },
+    {
+      "path": "twitter_homer_bot.py",
+      "liveSha256": "f64488a7f7580759bee5593096edfb72d7d083d07cc122a9bcaa63851c745406",
+      "backupSha256": "f64488a7f7580759bee5593096edfb72d7d083d07cc122a9bcaa63851c745406",
+      "sanitized": false
+    },
+    {
+      "path": "uploader_runner.py",
+      "liveSha256": "16bc8ba2dceaf6879548d6eb8e5854ca44cd50d05bb4ce848c8675e452c4633c",
+      "backupSha256": "16bc8ba2dceaf6879548d6eb8e5854ca44cd50d05bb4ce848c8675e452c4633c",
+      "sanitized": false
+    },
+    {
+      "path": "workflow_audit_logger.py",
+      "liveSha256": "fcd9aa595f34eb024fa2cc4bb64beb3e7e1cc3960fd6923a4af6e93a506d3038",
+      "backupSha256": "fcd9aa595f34eb024fa2cc4bb64beb3e7e1cc3960fd6923a4af6e93a506d3038",
+      "sanitized": false
+    },
+    {
+      "path": "workflow_dashboard.py",
+      "liveSha256": "aa4e1903e5a3de66c0e18748606f255684b02f79239aa493bd0a057c64e47d1e",
+      "backupSha256": "aa4e1903e5a3de66c0e18748606f255684b02f79239aa493bd0a057c64e47d1e",
+      "sanitized": false
+    },
+    {
+      "path": "workflow_network_graph.py",
+      "liveSha256": "7c7b6d2e919037278d7907ca1fd60a4e79353827301941720954a9fef0ce8f3d",
+      "backupSha256": "7c7b6d2e919037278d7907ca1fd60a4e79353827301941720954a9fef0ce8f3d",
+      "sanitized": false
+    },
+    {
+      "path": "youtube_analytics_sync.py",
+      "liveSha256": "e39ca36c86878f79802405f8d673676206fbeda9854f1960e9d9cfc226716169",
+      "backupSha256": "e39ca36c86878f79802405f8d673676206fbeda9854f1960e9d9cfc226716169",
+      "sanitized": false
+    },
+    {
+      "path": "youtube_homer_bot.py",
+      "liveSha256": "69720c5552f33a4063001ce7da959b362498674136b4489cb150a8810dba0475",
+      "backupSha256": "69720c5552f33a4063001ce7da959b362498674136b4489cb150a8810dba0475",
+      "sanitized": false
+    },
+    {
+      "path": "youtube_performance_sync.py",
+      "liveSha256": "e0dddf7c3b7844705a123d1aeb86e2b1dbc6f85fef44f965195b5060f12d029c",
+      "backupSha256": "e0dddf7c3b7844705a123d1aeb86e2b1dbc6f85fef44f965195b5060f12d029c",
+      "sanitized": false
+    },
+    {
+      "path": "youtube_queue_monitor.py",
+      "liveSha256": "f432b60a33e530f1c479abd4e2647e7617afcacaba0bb0c4fd8ffb1560bc804d",
+      "backupSha256": "f432b60a33e530f1c479abd4e2647e7617afcacaba0bb0c4fd8ffb1560bc804d",
+      "sanitized": false
+    }
+  ]
+}

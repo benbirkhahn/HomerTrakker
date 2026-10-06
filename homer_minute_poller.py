@@ -1,4 +1,4 @@
-#!/Users/benbirkhahn/twitter_bot_env/bin/python3
+#!/Users/benbirkhahn/HomerTrakker/twitter_bot_env/bin/python3
 """
 HomerTrakker Minute Poller
 - Detects MLB home runs during live windows (10 min pre-game to 6 hours post start)
@@ -12,7 +12,6 @@ Env vars:
 - HOMER_TOTAL_MAX_SECS=30           # total cap for concatenated segments
 - HOMER_AUTO_UPLOAD=1               # automatically upload via uploader_runner.py
 - HOMER_ALLOW_PRODUCED=1            # optionally allow producedclips fallback when no diamond/darkroom
-- HOMER_NOTIFY_PHONE=+1XXXXXXXXXX   # optional: iMessage number for detection/upload notifications
 
 Notes:
 - Uses ~/.homer/state.json to dedupe seen plays (seen:{gamePk}:{atBatIndex}).
@@ -21,15 +20,18 @@ Notes:
 """
 
 import json
+import subprocess
 import os
 import re
 import glob
+import sys
 from homer_timing_logger import timing_logger
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
 import urllib.request
 import urllib.parse
+from homer_clip_matcher import select_homer_clip
 
 BASE_DIR = Path(__file__).resolve().parent
 API_BASE = "https://statsapi.mlb.com/api/v1"
@@ -38,6 +40,26 @@ STATE_PATH = STATE_DIR / "state.json"
 
 PRE_MIN = 10      # minutes before scheduled start
 POST_HOURS = 6    # hours after scheduled start
+
+
+def load_local_env(path: Path = BASE_DIR / ".homer.env") -> None:
+    try:
+        if not path.exists():
+            return
+        for raw_line in path.read_text().splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            key = key.strip()
+            value = re.sub(r"\s+#.*$", "", value).strip().strip('"').strip("'")
+            if key:
+                os.environ.setdefault(key, value)
+    except Exception as e:
+        print(f"⚠️  Could not load local env file {path}: {e}")
+
+
+load_local_env()
 
 
 def http_get_json(url: str, params: Dict[str, Any] = None, timeout: int = 20) -> Dict[str, Any]:
@@ -65,6 +87,13 @@ def save_state(state: Dict[str, Any]) -> None:
             json.dump(state, f, indent=2)
     except Exception as e:
         print(f"⚠️  Could not save state: {e}")
+
+
+def env_flag(name: str, default: bool = False) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 
 def is_live_window(game: Dict[str, Any], now: datetime) -> bool:
@@ -101,59 +130,27 @@ def find_hr_plays(game_pk: int) -> List[Dict[str, Any]]:
     return hrs
 
 
-def get_homer_videos(game_pk: int, batter_id: Optional[int], batter_name: str, homer_num: int) -> Tuple[Optional[str], Optional[str]]:
+def get_homer_videos(
+    game_pk: int,
+    play: Dict[str, Any],
+    all_hr_plays: List[Dict[str, Any]],
+    used_clip_ids: set,
+) -> Tuple[Optional[str], Optional[str], Dict[str, Any]]:
     """Get videos for a homer from multiple sources. Return (broadcast_url, animated_url)."""
     
     # First try MLB Content API
     try:
         content = http_get_json(f"{API_BASE}/game/{game_pk}/content")
-        items = (content.get("highlights", {}) or {}).get("highlights", {}).get("items", [])
-        
-        def is_hr_item(it: Dict[str, Any]) -> bool:
-            t = (it.get("headline") or it.get("title") or "").lower()
-            return "home run" in t
-        
-        def by_batter(it: Dict[str, Any]) -> bool:
-            # Check player ID
-            if batter_id:
-                for kw in it.get("keywordsAll", []) or []:
-                    if kw.get("type") == "player" and str(kw.get("playerId")) == str(batter_id):
-                        return True
-            # Fallback to name match
-            t = (it.get("headline") or it.get("title") or "").lower()
-            return batter_name.lower() in t
-        
-        urls: List[str] = []
-        for it in items:
-            if not (is_hr_item(it) and by_batter(it)):
-                continue
-            for pb in it.get("playbacks", []) or []:
-                url = pb.get("url") or ""
-                if url.endswith(".mp4"):
-                    urls.append(url)
-        
-        diamond = [u for u in urls if "mlb-cuts-diamond.mlb.com" in u]
-        darkroom = [u for u in urls if "darkroom-clips.mlb.com" in u]
-        produced = [u for u in urls if "bdata-producedclips.mlb.com" in u]
-        
-        def pick_4000k_or_first(arr: List[str]) -> Optional[str]:
-            for u in arr:
-                if "4000K" in u:
-                    return u
-            return arr[0] if arr else None
-        
-        d = pick_4000k_or_first(diamond)
-        a = darkroom[0] if darkroom else None
+        d, a, debug = select_homer_clip(content, play, all_hr_plays, used_clip_ids)
         if d or a:
-            if not (d or a) and os.getenv("HOMER_ALLOW_PRODUCED") == "1":
-                d = produced[0] if produced else d
-            return d, a
+            return d, a, debug
     except Exception as e:
         print(f"⚠️  Content API error: {e}")
     
     # If we don't have videos yet, try MLB.com
     try:
         # Construct MLB.com search URL
+        batter_name = ((play.get("matchup") or {}).get("batter") or {}).get("fullName") or ""
         search_url = f"https://www.mlb.com/video/search?q={urllib.parse.quote(f'{batter_name} home run')}"
         # TODO: Implement direct MLB.com scraping
         # For now, just print the URL we would check
@@ -162,10 +159,10 @@ def get_homer_videos(game_pk: int, batter_id: Optional[int], batter_name: str, h
         print(f"⚠️  MLB.com search error: {e}")
     
     # No videos found from any source
-    return None, None
+    return None, None, {"matchedBy": "notFound", "pickedFrom": "", "clipGuid": "", "atBatIndex": (play.get("about") or {}).get("atBatIndex")}
 
 
-def build_post_text(play: Dict[str, Any], game_pk: int, d: str, a: str) -> str:
+def build_post_text(play: Dict[str, Any], game_pk: int, d: str, a: str, debug: Dict[str, Any] = None) -> str:
     matchup = play.get("matchup", {})
     batter = (matchup.get("batter") or {}).get("fullName") or "Unknown Player"
     pitcher = (matchup.get("pitcher") or {}).get("fullName") or ""
@@ -197,6 +194,11 @@ def build_post_text(play: Dict[str, Any], game_pk: int, d: str, a: str) -> str:
     lines.append(f"Batter: {batter}")
     if inning:
         lines.append(f"Inning: {inning}")
+    if debug:
+        lines.append(f"AtBatIndex: {debug.get('atBatIndex', about.get('atBatIndex'))}")
+        lines.append(f"ClipGuid: {debug.get('clipGuid', '')}")
+        lines.append(f"MatchedBy: {debug.get('matchedBy', '')}")
+        lines.append(f"PickedFrom: {debug.get('pickedFrom', '')}")
     return "\n".join(lines) + "\n"
 
 
@@ -221,27 +223,6 @@ def write_post_file(date_str: str, text: str) -> Path:
     return out
 
 
-def notify_imessage(msg: str) -> None:
-    phone = os.getenv("HOMER_NOTIFY_PHONE") or os.getenv("HOMER_NOTIFY_IMESSAGE")
-    if not phone:
-        return
-    try:
-        script = (
-            "on run argv\n"
-            "  set target to item 1 of argv\n"
-            "  set textMsg to item 2 of argv\n"
-            "  tell application \"Messages\"\n"
-            "    set targetService to first service whose service type is iMessage\n"
-            "    set targetBuddy to buddy target of targetService\n"
-            "    send textMsg to targetBuddy\n"
-            "  end tell\n"
-            "end run\n"
-        )
-        subprocess.run(["osascript", "-", phone, msg], input=script, text=True, capture_output=True, check=True)
-    except Exception as e:
-        print(f"⚠️  iMessage notify failed: {e}")
-
-
 def run_step(cmd: List[str], env: Dict[str, str] = None, ignore_error: bool = True) -> None:
     try:
         print("$", " ".join(cmd))
@@ -264,6 +245,9 @@ def main():
     state = load_state()
     seen = state.get("seen", {})
     video_retries = state.get("video_retries", {})
+    assigned_clips = state.get("assigned_clips", {})
+    used_clip_ids = {str(v) for v in assigned_clips.values() if v}
+    require_both = env_flag("HOMER_REQUIRE_BOTH", default=True)
 
     games = collect_games_for_dates([yday, today])
     active = [g for g in games if is_live_window(g, now)]
@@ -288,21 +272,26 @@ def main():
                 continue
             
             # Get batter info
-            batter_id = ((p.get("matchup") or {}).get("batter") or {}).get("id")
             batter_name = ((p.get("matchup") or {}).get("batter") or {}).get("fullName") or "Unknown Player"
             inning = f"{about.get('halfInning','')} {about.get('inning','')}".strip()
             
             # Try to get videos
             retry_count = video_retries.get(key, 0)
-            d, a = get_homer_videos(game_pk, batter_id, batter_name, retry_count)
+            d, a, debug = get_homer_videos(game_pk, p, hrs, used_clip_ids)
             
-            # If we have at least one video, create the post
-            if d or a:
-                text = build_post_text(p, game_pk, d or "", a or "")
+            if require_both and not (d and a):
+                video_retries[key] = retry_count + 1
+                missing = "animated" if d else "broadcast"
+                print(f"⏳ Waiting for {missing} clip for {batter_name} homer ({inning}) - retry {retry_count + 1}")
+            elif d or a:
+                text = build_post_text(p, game_pk, d or "", a or "", debug)
                 write_post_file(today, text)
                 seen[key] = True
+                clip_guid = debug.get("clipGuid")
+                if clip_guid:
+                    assigned_clips[key] = clip_guid
+                    used_clip_ids.add(str(clip_guid))
                 new_posts += 1
-                notify_imessage(f"HomerTrakker: HR detected — {batter_name} ({inning})")
                 # Reset retry count on success
                 if key in video_retries:
                     del video_retries[key]
@@ -313,12 +302,14 @@ def main():
 
     # Save state if updated
     state["seen"] = seen
+    state["video_retries"] = video_retries
+    state["assigned_clips"] = assigned_clips
     save_state(state)
 
     # If no new posts, still run downstream for any manually created posts
     print(f"🧾 New posts created this run: {new_posts}")
 
-    py = str(Path("/Users/benbirkhahn/twitter_bot_env/bin/python3"))
+    py = sys.executable
 
     # Enrich
     run_step([py, str(BASE_DIR / "statcast_enricher.py"), today])
@@ -330,7 +321,13 @@ def main():
     run_step(dl_cmd)
 
     # Compile (env caps respected by shorts_video_compiler)
-    run_step([py, str(BASE_DIR / "shorts_video_compiler.py"), today])
+    compile_cmd = [py, str(BASE_DIR / "shorts_video_compiler.py"), today]
+    if require_both:
+        compile_cmd.append("--require-both")
+    run_step(compile_cmd)
+
+    # Keep scheduled YouTube queue optimized even when no new upload is created.
+    run_step([py, str(BASE_DIR / "youtube_queue_monitor.py"), "--apply"])
 
     # Upload (optional)
     if os.getenv("HOMER_AUTO_UPLOAD") == "1":

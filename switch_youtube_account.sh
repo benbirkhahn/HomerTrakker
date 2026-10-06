@@ -16,4 +16,4 @@ fi
 
 echo "🚀 Starting YouTube bot to trigger Google sign-in..."
 source twitter_bot_env/bin/activate
-python3 youtube_homer_bot.py
+python3 youtube_homer_bot.py --reauth

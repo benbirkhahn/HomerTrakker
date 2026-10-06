@@ -1,0 +1,16 @@
+{
+  "capturedDate": "2026-10-06",
+  "pythonVersion": "3.13.2",
+  "ffmpeg": "ffmpeg version 8.1 Copyright (c) 2000-2026 the FFmpeg developers",
+  "n8nVersion": "1.113.3",
+  "n8nRequiredByScheduledPython": false,
+  "scheduler": {
+    "kind": "launchd",
+    "label": "com.homertrakker.poller",
+    "intervalSeconds": 60,
+    "runAtLoadObserved": true
+  },
+  "sourceHead": "5362ead1fff266c162241315aacf188b381fa062",
+  "baselineStatus": "current dirty working source; matching fix not deployed",
+  "privateStateIncluded": false
+}

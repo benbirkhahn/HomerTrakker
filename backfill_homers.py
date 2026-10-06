@@ -32,6 +32,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import urllib.parse
 import urllib.request
 import subprocess
+from homer_clip_matcher import select_homer_clip
 
 BASE_DIR = Path(__file__).resolve().parent
 API_BASE = "https://statsapi.mlb.com/api/v1"
@@ -85,54 +86,22 @@ def find_hr_plays(game_pk: int) -> List[Dict[str, Any]]:
     return hrs
 
 
-def get_homer_videos(game_pk: int, batter_id: Optional[int], batter_name: str) -> Tuple[Optional[str], Optional[str]]:
+def get_homer_videos(
+    game_pk: int,
+    play: Dict[str, Any],
+    all_hr_plays: List[Dict[str, Any]],
+    used_clip_ids: set,
+) -> Tuple[Optional[str], Optional[str], Dict[str, Any]]:
     """Get videos for a homer from MLB Content API. Return (broadcast_url, animated_url)."""
     try:
         content = http_get_json(f"{API_BASE}/game/{game_pk}/content")
-        items = (content.get("highlights", {}) or {}).get("highlights", {}).get("items", [])
-
-        def is_hr_item(it: Dict[str, Any]) -> bool:
-            t = (it.get("headline") or it.get("title") or "").lower()
-            return "home run" in t
-
-        def by_batter(it: Dict[str, Any]) -> bool:
-            if batter_id:
-                for kw in it.get("keywordsAll", []) or []:
-                    if kw.get("type") == "player" and str(kw.get("playerId")) == str(batter_id):
-                        return True
-            t = (it.get("headline") or it.get("title") or "").lower()
-            return batter_name.lower() in t
-
-        urls: List[str] = []
-        for it in items:
-            if not (is_hr_item(it) and by_batter(it)):
-                continue
-            for pb in it.get("playbacks", []) or []:
-                url = pb.get("url") or ""
-                if url.endswith(".mp4"):
-                    urls.append(url)
-
-        diamond = [u for u in urls if "mlb-cuts-diamond.mlb.com" in u]
-        darkroom = [u for u in urls if "darkroom-clips.mlb.com" in u]
-        produced = [u for u in urls if "bdata-producedclips.mlb.com" in u]
-
-        def pick_4000k_or_first(arr: List[str]) -> Optional[str]:
-            for u in arr:
-                if "4000K" in u:
-                    return u
-            return arr[0] if arr else None
-
-        d = pick_4000k_or_first(diamond)
-        a = darkroom[0] if darkroom else None
-        if not (d or a) and os.getenv("HOMER_ALLOW_PRODUCED") == "1":
-            d = produced[0] if produced else d
-        return d, a
+        return select_homer_clip(content, play, all_hr_plays, used_clip_ids)
     except Exception as e:
         print(f"⚠️  Content API error for game {game_pk}: {e}")
-        return None, None
+        return None, None, {"matchedBy": "contentError", "pickedFrom": "", "clipGuid": "", "atBatIndex": (play.get("about") or {}).get("atBatIndex")}
 
 
-def build_post_text(play: Dict[str, Any], game_pk: int, d: str, a: str) -> str:
+def build_post_text(play: Dict[str, Any], game_pk: int, d: str, a: str, debug: Dict[str, Any] = None) -> str:
     matchup = play.get("matchup", {})
     batter = (matchup.get("batter") or {}).get("fullName") or "Unknown Player"
     pitcher = (matchup.get("pitcher") or {}).get("fullName") or ""
@@ -164,6 +133,11 @@ def build_post_text(play: Dict[str, Any], game_pk: int, d: str, a: str) -> str:
     lines.append(f"Batter: {batter}")
     if inning:
         lines.append(f"Inning: {inning}")
+    if debug:
+        lines.append(f"AtBatIndex: {debug.get('atBatIndex', about.get('atBatIndex'))}")
+        lines.append(f"ClipGuid: {debug.get('clipGuid', '')}")
+        lines.append(f"MatchedBy: {debug.get('matchedBy', '')}")
+        lines.append(f"PickedFrom: {debug.get('pickedFrom', '')}")
     return "\n".join(lines) + "\n"
 
 
@@ -221,6 +195,8 @@ def main():
     state = load_state()
     seen = state.get("seen", {})
     video_retries = state.get("video_retries", {})
+    assigned_clips = state.get("assigned_clips", {})
+    used_clip_ids = {str(v) for v in assigned_clips.values() if v}
 
     py = str(Path("/Users/benbirkhahn/twitter_bot_env/bin/python3"))
 
@@ -244,9 +220,8 @@ def main():
                 key = f"{game_pk}:{about.get('atBatIndex')}"
                 if seen.get(key) and not args.force_posts:
                     continue
-                batter_id = ((p.get("matchup") or {}).get("batter") or {}).get("id")
                 batter_name = ((p.get("matchup") or {}).get("batter") or {}).get("fullName") or "Unknown Player"
-                b_url, a_url = get_homer_videos(game_pk, batter_id, batter_name)
+                b_url, a_url, debug = get_homer_videos(game_pk, p, hrs, used_clip_ids)
 
                 # Policy: require both or at least one
                 if args.require_both and not (b_url and a_url):
@@ -260,9 +235,13 @@ def main():
                     print(f"⏳ No videos yet for {batter_name} — {key} (retry {video_retries[key]})")
                     continue
 
-                text = build_post_text(p, game_pk, b_url or "", a_url or "")
+                text = build_post_text(p, game_pk, b_url or "", a_url or "", debug)
                 write_post_file(date_str, game_pk, int(about.get('atBatIndex') or 0), text)
                 seen[key] = True
+                clip_guid = debug.get("clipGuid")
+                if clip_guid:
+                    assigned_clips[key] = clip_guid
+                    used_clip_ids.add(str(clip_guid))
                 if key in video_retries:
                     del video_retries[key]
                 new_posts += 1
@@ -270,6 +249,7 @@ def main():
         # Save state after creating posts
         state["seen"] = seen
         state["video_retries"] = video_retries
+        state["assigned_clips"] = assigned_clips
         save_state(state)
 
         print(f"📝 New posts created for {date_str}: {new_posts}")

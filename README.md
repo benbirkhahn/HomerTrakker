@@ -1,3 +1,5 @@
+> Recovery branch, captured October 6, 2026: this snapshots the currently running Python pipeline, including uncommitted/untracked source. Read [RECOVERY.md](RECOVERY.md) first. The legacy n8n/Docker instructions below are historical references, not the required running architecture. The tested same-player matching fix is separate and is not deployed in this baseline. Credentials, private state and media are deliberately absent.
+
 # HomerTrakker
 
 A fully automated MLB home run pipeline that detects live HRs, downloads highlights (including animated replays), compiles vertical YouTube Shorts, uploads with Statcast-rich metadata, and cleans up local files.
@@ -8,6 +10,8 @@ Location
 Key scripts
 - homer_minute_poller.py
   - Runs every minute via cron; only executes the pipeline when MLB games are live (or in a buffered window)
+- workflow_network_graph.py
+  - Wide force-directed network map of the HomerTrakker pipeline, state, and external services
 - statcast_enricher.py
   - Adds Statcast (EV, LA, Distance) per HR into JSON alongside post files
 - download_homer_videos.py
@@ -17,6 +21,16 @@ Key scripts
   - Requires both broadcast (4000K) and animated clips when HOMER_REQUIRE_BOTH=1
 - youtube_homer_bot.py
   - Uploads Shorts with titles/descriptions/hashtags; sets custom thumbnail when allowed; deletes local video after upload
+  - Default mode schedules uploads as private videos with future `publishAt` times so a burst of Shorts does not go public all at once
+  - Uses a persistent local queue at `~/.homer/youtube_queue.json` so future runs keep the same publish spacing
+  - Drops low-priority clips when the backlog is too deep instead of pushing everything days into the future
+- youtube_performance_sync.py
+  - Pulls current views/likes/publication state through the existing YouTube Data API token
+  - Writes `~/.homer/youtube_analytics_summary.json`, which the uploader uses for ranking and suppression checks
+- optimize_youtube_queue.py
+  - Refreshes YouTube performance data, re-scores future private scheduled videos, and can reorder their `publishAt` times
+- youtube_queue_monitor.py
+  - Throttled automatic optimizer used by automation entry points; defaults to a 30-minute interval and avoids videos within 10 minutes of publish time
 
 Data folders
 - MLB_HomeRun_Posts/YYYY-MM-DD
@@ -84,6 +98,46 @@ Upload settings
 - Not made for kids (selfDeclaredMadeForKids=False)
 - Custom thumbnail set from the video at 1s with overlayed stats (if channel is eligible)
 - After successful upload, the local SHORT.mp4 is deleted
+- Scheduled publishing is enabled by default:
+  - `HOMER_YT_PUBLISH_MODE=scheduled` (default)
+  - `HOMER_YT_PUBLISH_START_DELAY_MINUTES=15`
+  - `HOMER_YT_PUBLISH_GAP_MINUTES=90`
+  - `HOMER_YT_PUBLISH_WINDOW_START_HOUR=16`
+  - `HOMER_YT_PUBLISH_WINDOW_END_HOUR=24`
+  - `HOMER_YT_CATCHUP_QUEUE_THRESHOLD=16`
+  - `HOMER_YT_NORMAL_WINDOW_START_HOUR=16`
+  - `HOMER_YT_NORMAL_WINDOW_END_HOUR=24`
+  - `HOMER_YT_MAX_PUBLISHES_PER_DAY=4`
+  - `HOMER_YT_MAX_QUEUE_ITEMS=8`
+  - `HOMER_YT_MAX_HORIZON_DAYS=2`
+  - `HOMER_YT_MIN_SCORE=0`
+  - `HOMER_YT_BACKLOG_MIN_SCORE=100`
+  - `HOMER_YT_DEFER_WEAK_BACKLOG=1`
+  - `HOMER_YT_SUPPRESSION_GUARD=1`
+  - `HOMER_YT_SUPPRESSION_SLOW_GAP_MINUTES=90`
+  - `HOMER_YT_SUPPRESSION_SLOW_MAX_PER_DAY=4`
+  - `HOMER_YT_OPTIMIZE_INTERVAL_MINUTES=30`
+  - `HOMER_YT_RESCHEDULE_MIN_LEAD_MINUTES=10`
+  - `HOMER_YT_QUOTA_BACKOFF_HOURS=6`
+  - `HOMER_YT_STABLE_SKIP_MINUTES=120`
+  - `HOMER_YT_PERFORMANCE_SYNC_MAX_AGE_MINUTES=180`
+  - `HOMER_YT_QUOTA_RECOVERY_STABLE_MINUTES=120`
+  - Set `HOMER_YT_PUBLISH_MODE=immediate` to restore the old behavior
+  - New uploads are ranked by Statcast, player star power, freshness, and existing performance history so stronger/recent clips get earlier slots when there is a backlog
+  - The default publish window is 4 PM-midnight ET because recent history showed overnight/morning posts were the suppressed cohort
+  - When the backlog is already in catch-up mode, clips below `HOMER_YT_BACKLOG_MIN_SCORE` are skipped instead of making the queue longer
+  - Already scheduled weak backlog clips are deferred into the same evening window instead of occupying stronger slots
+  - The suppression guard preserves the 90-minute/4-post recovery pace if consecutive mature posts fall below the low-view threshold
+  - Run `python3 youtube_performance_sync.py` to refresh the ranking/suppression summary without YouTube Analytics OAuth
+  - Run `python3 optimize_youtube_queue.py` to preview a score-based reorder for already scheduled private videos
+  - Run `python3 optimize_youtube_queue.py --apply` to update those scheduled videos on YouTube
+  - Run `python3 youtube_queue_monitor.py --apply` for the same optimization with throttling, matching automation behavior; if the performance refresh fails, it keeps using the last cached summary
+  - If the YouTube Data API quota is exhausted, the monitor backs off for `HOMER_YT_QUOTA_BACKOFF_HOURS` instead of repeatedly burning failed API calls
+  - After quota recovers, unchanged local queues can stay in a short recovery skip window before the next full API check
+  - When the queue is unchanged and the last optimizer pass was clean, the monitor skips full API checks for `HOMER_YT_STABLE_SKIP_MINUTES`; performance summaries can also be reused for `HOMER_YT_PERFORMANCE_SYNC_MAX_AGE_MINUTES`
+  - Run `python3 reschedule_youtube_posts.py` to preview tighter timing for already scheduled private videos
+  - Run `python3 reschedule_youtube_posts.py --apply` to update those future scheduled videos on YouTube
+  - Run `python3 youtube_analytics_sync.py` after reauthing once with YouTube read-only access for deeper watch-time/retention metrics
 
 Manual commands
 ```bash
@@ -96,6 +150,9 @@ python3 statcast_enricher.py $date
 python3 download_homer_videos.py $date
 python3 shorts_video_compiler.py $date
 python3 youtube_homer_bot.py $date   # choose 1 to upload all
+
+# open the network map
+python3 workflow_network_graph.py
 
 # switch YouTube account (re-auth)
 ./switch_youtube_account.sh
@@ -136,7 +193,7 @@ End-to-end behavior when a home run occurs
 
 Background poller (recommended runtime)
 - Start (background, with alerts and auto-upload):
-  - nohup /bin/zsh -lc 'export HOMER_PAUSE=0 HOMER_AUTO_UPLOAD=1 HOMER_BROADCAST_MAX_SECS=15 HOMER_TOTAL_MAX_SECS=30 HOMER_NOTIFY_PHONE=+19144142424 HOMER_REQUIRE_BOTH=1; while true; do ~/twitter_bot_env/bin/python3 ~/HomerTrakker/homer_minute_poller.py || true; sleep 60; done' > ~/HomerTrakker/logs/homer_poller.log 2>&1 & echo $!
+  - nohup /bin/zsh -lc 'export HOMER_PAUSE=0 HOMER_AUTO_UPLOAD=1 HOMER_BROADCAST_MAX_SECS=15 HOMER_TOTAL_MAX_SECS=30 HOMER_NOTIFY_PHONE=<YOUR_PHONE_NUMBER> HOMER_REQUIRE_BOTH=1; while true; do ~/twitter_bot_env/bin/python3 ~/HomerTrakker/homer_minute_poller.py || true; sleep 60; done' > ~/HomerTrakker/logs/homer_poller.log 2>&1 & echo $!
 - Monitor logs:
   - tail -f ~/HomerTrakker/logs/homer_poller.log
 - Stop:
@@ -154,7 +211,7 @@ Environment variables
   - Total cap for concatenated segments (keeps Shorts under 60s once re-encoded).
 - HOMER_REQUIRE_BOTH=1
   - Require both angles (broadcast + animated) to compile/upload; unset or set to 0 to allow single-angle manual compiles.
-- HOMER_NOTIFY_PHONE=+19144142424
+- HOMER_NOTIFY_PHONE=<YOUR_PHONE_NUMBER>
   - E.164 phone number for iMessage notifications (iMessage must be enabled on the Mac).
 - HOMER_ALLOW_PRODUCED=1
   - Optional: allow producedclips as a fallback when no diamond/darkroom clips exist.

@@ -12,3 +12,36 @@ logs/
 config/youtube_credentials.json
 client_secret*.json
 
+
+# Disaster-recovery branch: private state and media stay out of GitHub.
+*.pyc
+*.pyo
+*.log
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
+*.mp4
+*.mov
+*.mkv
+*.pem
+*.key
+*.p12
+.env
+.env.*
+!.homer.env.example
+!.env.example
+*_token.json
+*credentials*.json
+client_secret*.json
+*queue*.json
+*ledger*.json
+state.json
+uploads.json
+.n8n/
+.homer_cache/
+.homer.lock/
+twitter_bot_env/
+.venv/
+venv/
+backup-private/

@@ -3,19 +3,18 @@
 This is a quick reference for starting, monitoring, and (optionally) auto-starting the HomerTrakker pipeline.
 
 The current codebase is configured to:
-- Detect live HRs, generate posts, and iMessage you on detection
+- Detect live HRs and generate posts
 - Backfill both angles (4000K broadcast + animated) when available
 - Enrich Statcast before compile/upload so titles/descriptions include distance, LA, and EV
-- Compile only when both angles are present (automation default), then build Shorts (15s broadcast / 30s total), upload, iMessage the link, and clean up sources
+- Compile only when both angles are present (automation default), then build Shorts (15s broadcast / 30s total), upload, and clean up sources
 
 ## Daily manual start (if not already running)
 
-1) Start the background poller (with alerts and auto-upload)
+1) Start the background poller (with auto-upload)
 
    ```bash
-   nohup /bin/zsh -lc 'export HOMER_PAUSE=0 HOMER_AUTO_UPLOAD=1 HOMER_BROADCAST_MAX_SECS=15 HOMER_TOTAL_MAX_SECS=30 HOMER_NOTIFY_PHONE=+1XXXXXXXXXX HOMER_REQUIRE_BOTH=1; while true; do ~/twitter_bot_env/bin/python3 ~/HomerTrakker/homer_minute_poller.py || true; sleep 60; done' > ~/HomerTrakker/logs/homer_poller.log 2>&1 & echo $!
+   nohup /bin/zsh -lc 'export HOMER_PAUSE=0 HOMER_AUTO_UPLOAD=1 HOMER_BROADCAST_MAX_SECS=15 HOMER_TOTAL_MAX_SECS=30 HOMER_REQUIRE_BOTH=1; while true; do ~/twitter_bot_env/bin/python3 ~/HomerTrakker/homer_minute_poller.py || true; sleep 60; done' > ~/HomerTrakker/logs/homer_poller.log 2>&1 & echo $!
    ```
-   - Replace +1XXXXXXXXXX with your iMessage-enabled number (E.164 format).
 
 2) Keep the Mac awake during games (optional but recommended)
 
@@ -42,25 +41,6 @@ The current codebase is configured to:
    # Resume
    rm -f /tmp/homer_pause
    ```
-
-## iMessage notifications
-
-- Configure your number at start via HOMER_NOTIFY_PHONE (E.164, e.g., +15551234567)
-- Send a one-off test iMessage:
-
-  ```bash
-  osascript - "+1XXXXXXXXXX" "HomerTrakker test: pipeline is live ✅" <<'APPLESCRIPT'
-  on run argv
-    set target to item 1 of argv
-    set textMsg to item 2 of argv
-    tell application "Messages"
-      set targetService to first service whose service type is iMessage
-      set targetBuddy to buddy target of targetService
-      send textMsg to targetBuddy
-    end tell
-  end run
-  APPLESCRIPT
-  ```
 
 ## Optional: Persistent autostart via cron (do later if desired)
 
@@ -113,4 +93,3 @@ The current codebase is configured to:
 
 - If uploads fail with an auth/refresh error, run youtube_homer_bot.py once interactively and approve Google OAuth. Token is saved to youtube_token.json.
 - If a compiled upload is missing an angle, MLB may not have published it yet. The poller will backfill when it appears; by default the system won’t re-upload a video that’s already been posted (upload-once ledger). Ask if you want a hold-off/wait-for-both policy.
-- Ensure Messages app has automation permission for your terminal (System Settings → Privacy & Security → Automation) if iMessage tests fail.

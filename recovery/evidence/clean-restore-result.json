@@ -1,0 +1,21 @@
+{
+  "source": "clean Git-tree archive in a new directory",
+  "privateConfigurationIncluded": false,
+  "oauthClientsConstructed": false,
+  "networkAndPipelineCommands": "blocked by tests",
+  "schedulerLoaded": false,
+  "workflowRun": false,
+  "packageInstallation": "none; only bundled pip/venv setup",
+  "testsPassed": 6,
+  "environment": {
+    "python": "3.13.2",
+    "googleSdkInstalled": false
+  },
+  "missingForLiveRecovery": [
+    "runtime dependencies on a fresh machine",
+    "FFmpeg/FFprobe",
+    "secure OAuth/config backup",
+    "seen/upload/queue state and pending media",
+    "account/schedule reconciliation and explicit activation"
+  ]
+}
