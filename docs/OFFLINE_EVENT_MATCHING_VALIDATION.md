@@ -23,6 +23,12 @@ The publication-guard test verified the guard function in isolation. It did **no
 
 The standalone test harness and detailed run record were kept outside the repository at `/Users/benbirkhahn/Documents/Codex/2026-10-28/task-2/warp-results/homertrakker/`. The handoff there records the exact command, source snapshot, individual test cases, and skipped checks. The harness is not bundled with this repository and its machine-specific command should not be treated as a project test target.
 
+## Main-entry-point smoke test
+
+On 2026-10-29, `homer_minute_poller.py` was started from a temporary copy with an isolated `HOME` and `HOMER_PAUSE=1`. It imported successfully, printed `HOMER_PAUSE active — exiting early`, and exited with code 0. Its timing logger created its expected `logs/timing` output only inside the temporary copy; the repository stayed clean.
+
+This verifies Python startup/imports and the pause early-exit path only. It does not verify game polling or downstream behavior. Running the unpaused entry point is not a safe smoke test: it requests MLB APIs, writes state and post files, may send iMessage notifications, and invokes enrichment, download, and compile steps. Uploading is additionally controlled by `HOMER_AUTO_UPLOAD`; the unpaused pipeline was not run.
+
 ## Source reviewed
 
 `homer_event_identity.py`, `statcast_enricher.py`, `homer_clip_matcher.py`, `animation_manifest.py`, `pending_homers.py`, and `publication_guard.py` were reviewed for the event path. The enrichment module was reviewed statically; its network-capable entry point was not executed.
